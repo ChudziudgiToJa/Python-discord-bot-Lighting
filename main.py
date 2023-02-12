@@ -12,8 +12,8 @@ with open('config.json', 'r') as f:
     data = json.load(f)
     token = data['TOKEN']
     prefix = data['PREFIX']
-    aktywnosc = [ "Made by Chudy#1294", "Gildia NWN!", "Szukasz młodego programisty? pisz śmiało"]
-
+    aktywnosc = data['AKTYWNOSC']
+    
 client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all())
 
 
