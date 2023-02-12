@@ -1,212 +1,283 @@
-import discord, os
-from datetime import datetime
-from discord import app_commands, utils, Webhook
+
+import discord
+from discord import ui, app_commands, utils
 from discord.ext import commands
-import aiohttp
+from discord.ext.commands import has_permissions
+from datetime import datetime
+import json
+import asyncio
+import random
 
-guild_id = 1040293208384622662
-role_id = 1072888271606128660
+with open('config.json', 'r') as f:
+    data = json.load(f)
+    token = data['TOKEN']
+    prefix = data['PREFIX']
+    aktywnosc = [ "Made by Chudy#1294", "Gildia NWN!", "Szukasz młodego programisty? pisz śmiało"]
+
+client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all())
 
 
+
+# - = - = - = - = - = rangs = - = - = - = - = - =
+
+@client.event
+async def on_member_join(member):
+    roles = [1073212003662962718, 1056242014406049843, 992422540515475536]
+    for role_id in roles:
+        role = discord.utils.get(member.guild.roles, id=role_id)
+        await member.add_roles(role)
+
+# - = - = - = - = - = client = - = - = - = - = - =
+
+@client.event
+async def on_ready():
+    await client.change_presence(status=discord.Status.do_not_disturb, activity=discord.Game(("odpalam się!")))
+    print(f"[!] Aktywowano bota [{client.user}]")
+    await asyncio.sleep(5)
+    client.loop.create_task(update_channel_member_name())
+    client.loop.create_task(update_channel_guild_name())
+    client.loop.create_task(update_status_name())
+
+    client.add_view(ticket_launcher())
+    client.add_view(ticket_confirm())
+    client.add_view(ticket_delete())
+
+    client.add_view(podanie_launcher())
+    client.add_view(podanie_confirm())
+    client.add_view(podanie_delete())
+
+    client.add_view(kategoria_luncher())
+
+# - = - = - = - = - = loops = - = - = - = - = - =
+
+async def update_channel_member_name():
+    while True:
+        channel = client.get_channel(1058437462818570410)
+        member_count = len(channel.guild.members)
+        await channel.edit(name=f'Użytkownicy: {member_count}')
+        await asyncio.sleep(600)
+
+async def update_channel_guild_name():
+    channel = client.get_channel(1073366116883247114)
+    guild = discord.utils.get(client.guilds, name="Serwis 7Light & Gildia NWN")
+    roles = [discord.utils.get(guild.roles, name=role_name) for role_name in ["Lider NWN", "VLider NWN", "Członek NWN", "Rekrut NWN"]]
+    members = [member for role in roles for member in guild.members if role in member.roles]
+    await channel.edit(name=f'Status gildi {len(members)}/100')
+    await asyncio.sleep(600)
+
+async def update_status_name():
+    while True:
+        await client.change_presence(status=discord.Status.online, activity=discord.Game(random.choice(aktywnosc)))
+        await asyncio.sleep(600)
+
+@client.event 
+async def on_command_error(ctx, error): 
+    if isinstance(error, commands.CommandNotFound): 
+        return
+# - = - = - = - = - = anti link - = - = - = - = - = 
+
+@client.event
+async def on_message(message):
+    if "discord.gg" in message.content:
+        await message.delete()
+        await message.author.send("Wysyłanie linków zaproszeniowych jest zabronione na tym kanale.")
+    else:
+        await client.process_commands(message)
+
+
+# - = - = - = - = - = tickety = - = - = - = - = - =
+
+@client.command()
+@has_permissions(administrator=True)
+async def ticket(ctx):
+    embed = discord.Embed(title=("Strefa pomocy"), description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji", color = discord.Colour.green())
+    embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
+    await ctx.send(embed = embed, view = ticket_launcher())
+
+@ticket.error
+async def my_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
 
 class ticket_launcher(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
         self.cooldown = commands.CooldownMapping.from_cooldown(1, 600, commands.BucketType.member)
-    
-    @discord.ui.button(label = "Create a Ticket", style = discord.ButtonStyle.blurple, custom_id = "ticket_button")
+
+    @discord.ui.button(label = "Stworz ticket", style = discord.ButtonStyle.green, custom_id = "ticket_button", emoji="<a:icon_modshield:1073011960603488286>")
     async def ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ticket_category = utils.get(interaction.guild.categories, name = "ticket")
+        if ticket_category is None:
+            ticket_category = await interaction.guild.create_category("ticket")
+
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Slow down! Try again in {round(retry, 1)} seconds!", ephemeral = True)
-        ticket = utils.get(interaction.guild.text_channels, name = f"ticket-for-{interaction.user.name.lower().replace(' ', '-')}-{interaction.user.discriminator}")
-        if ticket is not None: await interaction.response.send_message(f"You already have a ticket open at {ticket.mention}!", ephemeral = True)
+        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        ticket = utils.get(interaction.guild.text_channels, name = f"ticket-{interaction.user.id}")
+        if ticket is not None: await interaction.response.send_message(f"Masz już otwarty ticket! {ticket.mention}!", ephemeral = True)
+
         else:
-            if type(client.ticket_mod) is not discord.Role: 
-                client.ticket_mod = interaction.guild.get_role(role_id)
             overwrites = {
                 interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
                 interaction.user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
                 interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
-                client.ticket_mod: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
             }
-            try: channel = await interaction.guild.create_text_channel(name = f"ticket-for-{interaction.user.name}-{interaction.user.discriminator}", overwrites = overwrites, reason = f"Ticket for {interaction.user}")
-            except: return await interaction.response.send_message("Ticket creation failed! Make sure I have `manage_channels` permissions!", ephemeral = True)
-            await channel.send(f"{client.ticket_mod.mention}, {interaction.user.mention} created a ticket!", view = main())
-            
-            await send_hook(interaction)
-                        
-            
-            await interaction.response.send_message(f"I've opened a ticket for you at {channel.mention}!", ephemeral = True)
+            try: channel = await interaction.guild.create_text_channel(name = f"ticket-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"ticket dla {interaction.user}")
+            except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
+            await interaction.response.send_message(f"ticket został utworzony {channel.mention}!", ephemeral = True)
+            embed = discord.Embed(title=("Strefa pomocy"), description=f"Opisz swój problem.", color = discord.Colour.green())
+            embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
+            await channel.send(embed=embed, view=ticket_delete())
 
-class confirm(discord.ui.View):
+
+class ticket_delete(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
-        
-    @discord.ui.button(label = "Confirm", style = discord.ButtonStyle.red, custom_id = "confirm")
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
+
+    @discord.ui.button(label = "Zamknij", style = discord.ButtonStyle.red, custom_id = "close", emoji="<a:icon_delete:1073011964537753711>")
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        interaction.message.author = interaction.user
+        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+
+        embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to zgłoszenie", color = discord.Colour.green())
+        try: await interaction.response.send_message(embed=embed, view=ticket_confirm(), ephemeral = True)
+        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
+
+class ticket_confirm(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout = None)
+
+    @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red, custom_id = "confirm", emoji="<a:icon_delete:1073011964537753711>")
     async def confirm_button(self, interaction, button):
-        try: await interaction.channel.delete()
-        except: await interaction.response.send_message("Channel deletion failed! Make sure I have `manage_channels` permissions!", ephemeral = True)
 
-class main(discord.ui.View):
+        try: await interaction.channel.delete()
+        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
+
+# - = - = - = - = - = podania = - = - = - = - = - = -
+
+@client.command()
+@has_permissions(administrator=True)
+async def podanie(ctx):
+    embed = discord.Embed(title=("Strefa pomocy"), description=f"> Jeżeli chcesz złożyć podanie o rekrutacje do gildi kliknij w guzik `Stworz podanie` zostanie stworzony kanał z chat'em  do twojego podania", color = discord.Colour.green())
+    embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
+    await ctx.send(embed = embed, view =podanie_launcher())
+
+@podanie.error
+async def my_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
+
+class podanie_launcher(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
-    
-    @discord.ui.button(label = "Close Ticket", style = discord.ButtonStyle.red, custom_id = "close")
-    async def close(self, interaction, button):
-        embed = discord.Embed(title = "Are you sure you want to close this ticket?", color = discord.Colour.blurple())
-        await interaction.response.send_message(embed = embed, view = confirm(), ephemeral = True)
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 600, commands.BucketType.member)
 
-    @discord.ui.button(label = "Transcript", style = discord.ButtonStyle.blurple, custom_id = "transcript")
-    async def transcript(self, interaction, button):
-        await interaction.response.defer()
-        if os.path.exists(f"{interaction.channel.id}.md"):
-            return await interaction.followup.send(f"A transcript is already being generated!", ephemeral = True)
-        with open(f"{interaction.channel.id}.md", 'a') as f:
-            f.write(f"# Transcript of {interaction.channel.name}:\n\n")
-            async for message in interaction.channel.history(limit = None, oldest_first = True):
-                created = datetime.strftime(message.created_at, "%m/%d/%Y at %H:%M:%S")
-                if message.edited_at:
-                    edited = datetime.strftime(message.edited_at, "%m/%d/%Y at %H:%M:%S")
-                    f.write(f"{message.author} on {created}: {message.clean_content} (Edited at {edited})\n")
-                else:
-                    f.write(f"{message.author} on {created}: {message.clean_content}\n")
-            generated = datetime.now().strftime("%m/%d/%Y at %H:%M:%S")
-            f.write(f"\n*Generated at {generated} by {client.user}*\n*Date Formatting: MM/DD/YY*\n*Time Zone: UTC*")
-        with open(f"{interaction.channel.id}.md", 'rb') as f:
-            await interaction.followup.send(file = discord.File(f, f"{interaction.channel.name}.md"))
-        os.remove(f"{interaction.channel.id}.md")
-    
-class aclient(discord.Client):
-    def __init__(self):
-        intents = discord.Intents.default()
-        intents.message_content = True
-        super().__init__(intents = intents)
-        self.synced = False
-        self.added = False
-        self.ticket_mod = 1
+    @discord.ui.button(label = "Stworz podanie", style = discord.ButtonStyle.green, custom_id = "podanie_button", emoji="<a:icon_modshield:1073011960603488286>")
+    async def ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ticket_category = utils.get(interaction.guild.categories, name = "podania")
+        if ticket_category is None:
+            ticket_category = await interaction.guild.create_category("podania")
 
-    async def on_ready(self):
-        await self.wait_until_ready()
-        if not self.synced:
-            await tree.sync(guild = discord.Object(id=0))
-            self.synced = True
-        if not self.added:
-            self.add_view(ticket_launcher())
-            self.add_view(main())
-            self.added = True
-        print(f"We have logged in as {self.user}.")
+        interaction.message.author = interaction.user
+        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        ticket = utils.get(interaction.guild.text_channels, name = f"podanie-{interaction.user.id}")
+        if ticket is not None: await interaction.response.send_message(f"Masz już otwarte podanie! {ticket.mention}!", ephemeral = True)
 
-client = aclient()
-tree = app_commands.CommandTree(client)
+        else:
+            overwrites = {
+                interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
+                interaction.user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
+                interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
+            }
+            try: channel = await interaction.guild.create_text_channel(name = f"podanie-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"podanie dla {interaction.user}")
+            except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
+            await interaction.response.send_message(f"podanie zostało utworzone {channel.mention}!", ephemeral = True)
+            embed = discord.Embed(title=("Strefa pomocy"), description=f"Wypełnij wzór i wyślij go na chat`cie ```Wzór Podania :\n1. nick:\n2. Wiek:\n3. Nick w Minecraft ? :\n4. Jak oceniasz swoje pvp -/10 ? :\n5. Ile czasu grasz w Minecraft ? :\n6. Premium/Nonpremium?:\n7. Ile dziennie możesz poświecić czasu na gildię ? :\n8. Umiesz ładnie budować ?:\n9. Co wprowadziłbyś do gildii ?:\n10. Posiadasz :\n-Sprawny Mikrofon\n-Mutacje\n11. Umiesz pracować w grupie ?:\n12. Na stałe czy raczej na jakiś czas ?:```", color = discord.Colour.green())
+            embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
+            await channel.send(embed=embed, view=podanie_delete())
 
 
+class podanie_delete(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout = None)
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
+
+    @discord.ui.button(label = "Zamknij", style = discord.ButtonStyle.red, custom_id = "close", emoji="<a:icon_delete:1073011964537753711>")
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        interaction.message.author = interaction.user
+        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+
+        embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to podanie", color = discord.Colour.green())
+        try: await interaction.response.send_message(embed=embed, view=podanie_confirm(), ephemeral = True)
+        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
+
+class podanie_confirm(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout = None)
+
+    @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red, custom_id = "confirm", emoji="<a:icon_delete:1073011964537753711>")
+    async def confirm_button(self, interaction, button):
+
+        try: await interaction.channel.delete()
+        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
+
+# - = - = - = - = - = kategorie = - = - = - = - = - =
+
+@client.command()
+@has_permissions(administrator=True)
+async def kategorie(ctx):
+    embed = discord.Embed(title=('Kategorie serwerów'), description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.green())  
+    embed.set_image(url='https://i.imgur.com/wPjXE9w.jpg')
+    await ctx.send(embed = embed, view = kategoria_luncher())
+
+@kategorie.error
+async def my_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
+
+class kategoria_luncher(discord.ui.View):
+  def __init__(self) -> None:
+    super().__init__(timeout = None)
+    self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
 
 
-async def send_hook(interaction):
-    async with aiohttp.ClientSession() as session:
-        webhook = Webhook.from_url("https://discord.com/api/webhooks/.../...", session=session)
-        await webhook.send(f"I've opened a new ticket for {interaction.user.name}!", username="Ticket Bot")
+  @discord.ui.button(label = "Serwis 7Light", custom_id = "button_role1", emoji="<a:barrier_block:1073011973639385098>" ,style = discord.ButtonStyle.green)
+  async def button_role1(self, interaction: discord.Interaction, button: discord.ui.Button):
 
+    interaction.message.author = interaction.user
+    retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+    if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
 
+    role1 = 999421620894568498
+    user = interaction.user
+    if role1 in [y.id for y in user.roles]:
+      await user.remove_roles(user.guild.get_role(role1))
 
-
-@tree.command(guild = discord.Object(id=guild_id), name = 'ticket', description='Launches the ticketing system')
-@app_commands.default_permissions(manage_guild = True)
-@app_commands.checks.cooldown(3, 60, key = lambda i: (i.guild_id))
-@app_commands.checks.bot_has_permissions(manage_channels = True)
-async def ticketing(interaction: discord.Interaction):
-    embed = discord.Embed(title = "If you need support, click the button below and create a ticket!", color = discord.Colour.blue())
-    await interaction.channel.send(embed = embed, view = ticket_launcher())
-    await interaction.response.send_message("Ticketing system launched!", ephemeral = True)
-
-@tree.command(guild = discord.Object(id=guild_id), name = 'close', description='Closes the ticket')
-@app_commands.checks.bot_has_permissions(manage_channels = True)
-async def close(interaction: discord.Interaction):
-    if "ticket-for-" in interaction.channel.name:
-        embed = discord.Embed(title = "Are you sure you want to close this ticket?", color = discord.Colour.blurple())
-        await interaction.response.send_message(embed = embed, view = confirm(), ephemeral = True)
-    else: await interaction.response.send_message("This isn't a ticket!", ephemeral = True)
-
-@tree.command(guild = discord.Object(id=guild_id), name = 'add', description='Adds a user to the ticket')
-@app_commands.describe(user = "The user you want to add to the ticket")
-@app_commands.default_permissions(manage_channels = True)
-@app_commands.checks.cooldown(3, 20, key = lambda i: (i.guild_id, i.user.id))
-@app_commands.checks.bot_has_permissions(manage_channels = True)
-async def add(interaction: discord.Interaction, user: discord.Member):
-    if "ticket-for-" in interaction.channel.name:
-        await interaction.channel.set_permissions(user, view_channel = True, send_messages = True, attach_files = True, embed_links = True)
-        await interaction.response.send_message(f"{user.mention} has been added to the ticket by {interaction.user.mention}!")
-    else: await interaction.response.send_message("This isn't a ticket!", ephemeral = True)
-
-@tree.command(guild = discord.Object(id=guild_id), name = 'remove', description='Removes a user from the ticket')
-@app_commands.describe(user = "The user you want to remove from the ticket")
-@app_commands.default_permissions(manage_channels = True)
-@app_commands.checks.cooldown(3, 20, key = lambda i: (i.guild_id, i.user.id))
-@app_commands.checks.bot_has_permissions(manage_channels = True)
-async def remove(interaction: discord.Interaction, user: discord.Member):
-    if "ticket-for-" in interaction.channel.name:
-        if type(client.ticket_mod) is not discord.Role: client.ticket_mod = interaction.guild.get_role(role_id)
-        if client.ticket_mod not in interaction.user.roles:
-            return await interaction.response.send_message("You aren't authorized to do this!", ephemeral = True)
-        if client.ticket_mod not in user.roles:
-            await interaction.channel.set_permissions(user, overwrite = None)
-            await interaction.response.send_message(f"{user.mention} has been removed from the ticket by {interaction.user.mention}!", ephemeral = True)
-        else: await interaction.response.send_message(f"{user.mention} is a moderator!", ephemeral = True)
-    else: await interaction.response.send_message("This isn't a ticket!", ephemeral = True)
-
-@tree.command(guild = discord.Object(id=guild_id), name = 'transcript', description='Generates a transcript for a ticket')
-async def transcript(interaction: discord.Interaction): 
-    if "ticket-for-" in interaction.channel.name:
-        await interaction.response.defer()
-        if os.path.exists(f"{interaction.channel.id}.md"):
-            return await interaction.followup.send(f"A transcript is already being generated!", ephemeral = True)
-        with open(f"{interaction.channel.id}.md", 'a') as f:
-            f.write(f"# Transcript of {interaction.channel.name}:\n\n")
-            async for message in interaction.channel.history(limit = None, oldest_first = True):
-                created = datetime.strftime(message.created_at, "%m/%d/%Y at %H:%M:%S")
-                if message.edited_at:
-                    edited = datetime.strftime(message.edited_at, "%m/%d/%Y at %H:%M:%S")
-                    f.write(f"{message.author} on {created}: {message.clean_content} (Edited at {edited})\n")
-                else:
-                    f.write(f"{message.author} on {created}: {message.clean_content}\n")
-            generated = datetime.now().strftime("%m/%d/%Y at %H:%M:%S")
-            f.write(f"\n*Generated at {generated} by {client.user}*\n*Date Formatting: MM/DD/YY*\n*Time Zone: UTC*")
-        with open(f"{interaction.channel.id}.md", 'rb') as f:
-            await interaction.followup.send(file = discord.File(f, f"{interaction.channel.name}.md"))
-        os.remove(f"{interaction.channel.id}.md")
-    else: await interaction.response.send_message("This isn't a ticket!", ephemeral = True)
-
-@tree.context_menu(name = "Open a Ticket", guild = discord.Object(id=guild_id))
-@app_commands.default_permissions(manage_guild = True)
-@app_commands.checks.cooldown(3, 20, key = lambda i: (i.guild_id, i.user.id))
-@app_commands.checks.bot_has_permissions(manage_channels = True)
-async def open_ticket_context_menu(interaction: discord.Interaction, user: discord.Member):
-    await interaction.response.defer(ephemeral = True)
-    ticket = utils.get(interaction.guild.text_channels, name = f"ticket-for-{user.name.lower().replace(' ', '-')}-{user.discriminator}")
-    if ticket is not None: await interaction.followup.send(f"{user.mention} already has a ticket open at {ticket.mention}!", ephemeral = True)
+      await interaction.response.send_message("Usunięto kategorie (7Light)", ephemeral = True)
     else:
-        if type(client.ticket_mod) is not discord.Role: 
-            client.ticket_mod = interaction.guild.get_role(role_id)
-        overwrites = {
-            interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
-            user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
-            interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
-            client.ticket_mod: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
-        }
-        try: channel = await interaction.guild.create_text_channel(name = f"ticket-for-{user.name}-{user.discriminator}", overwrites = overwrites, reason = f"Ticket for {user}, generated by {interaction.user}")
-        except: return await interaction.followup.send("Ticket creation failed! Make sure I have `manage_channels` permissions!", ephemeral = True)
-        await channel.send(f"{interaction.user.mention} created a ticket for {user.mention}!", view = main())   
-        await interaction.followup.send(f"I've opened a ticket for {user.mention} at {channel.mention}!", ephemeral = True)
+      await user.add_roles(user.guild.get_role(role1))
+      await interaction.response.send_message("Nadano kategorie (7Light)", ephemeral = True)
+  @discord.ui.button(label = "Gildia NWN", custom_id = "button_role2", emoji="<a:diamond_sword:1073011971043115068>" ,style = discord.ButtonStyle.blurple)
+  async def button_role2(self, interaction: discord.Interaction, button: discord.ui.Button):
 
-@tree.error
-async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    if isinstance(error, app_commands.CommandOnCooldown):
-        return await interaction.response.send_message(error, ephemeral = True)
-    elif isinstance(error, app_commands.BotMissingPermissions):
-        return await interaction.response.send_message(error, ephemeral = True)
+    interaction.message.author = interaction.user
+    retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+    if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+
+    role2 = 1073212315987611658
+    user = interaction.user
+    if role2 in [y.id for y in user.roles]:
+      await user.remove_roles(user.guild.get_role(role2))
+
+      await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
     else:
-        await interaction.response.send_message("An error occurred!", ephemeral = True)
-        raise error
+      await user.add_roles(user.guild.get_role(role2))
+      await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
 
-client.run("MTAzNjQwNTAxMzM2NDM0NzAzMg.GHeLk4.hbk1uddyekUAu0kBwmI-uH771bXOci8U7PIwJ8")
+client.run(token)
