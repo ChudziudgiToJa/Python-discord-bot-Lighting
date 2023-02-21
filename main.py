@@ -1,12 +1,9 @@
+import discord, json, os, asyncio, random
 
-import discord
-from discord import ui, app_commands, utils
+from discord import utils
 from discord.ext import commands
 from discord.ext.commands import has_permissions
 from datetime import datetime
-import json
-import asyncio
-import random
 
 with open('config.json', 'r') as f:
     data = json.load(f)
@@ -15,7 +12,7 @@ with open('config.json', 'r') as f:
     aktywnosc = data['AKTYWNOSC']
     
 client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all())
-
+client.remove_command("help")
 
 
 # - = - = - = - = - = rangs = - = - = - = - = - =
@@ -83,7 +80,6 @@ async def on_message(message):
         await message.author.send("Wysyłanie linków zaproszeniowych jest zabronione na tym kanale.")
     else:
         await client.process_commands(message)
-
 
 # - = - = - = - = - = tickety = - = - = - = - = - =
 
@@ -279,5 +275,51 @@ class kategoria_luncher(discord.ui.View):
     else:
       await user.add_roles(user.guild.get_role(role2))
       await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
+
+# - = - = - = - = - = lvl = - = - = - = - = - =
+
+with open("users.json", "ab+") as ab:
+    ab.close()
+    f = open('users.json','r+')
+    f.readline()
+    if os.stat("users.json").st_size == 0:
+      f.write("{}")
+      f.close()
+    else:
+      pass
+with open('users.json', 'r') as f:
+  users = json.load(f)
+
+@client.event    
+async def on_message(message):
+    if message.author.bot == False:
+        with open('users.json', 'r') as f:
+            users = json.load(f)
+        await add_experience(users, message.author)
+        await level_up(users, message.author, message)
+        with open('users.json', 'w') as f:
+            json.dump(users, f)
+            await client.process_commands(message)
+
+async def add_experience(users, user):
+  if not f'{user.id}' in users:
+        users[f'{user.id}'] = {}
+        users[f'{user.id}']['experience'] = 0
+        users[f'{user.id}']['level'] = 0
+  users[f'{user.id}']['experience'] += 6
+
+async def level_up(users, user, message):
+  experience = users[f'{user.id}']["experience"]
+  lvl_start = users[f'{user.id}']["level"]
+  lvl_end = int(experience ** (1 / 4))
+  if lvl_start < lvl_end:
+    em1 = discord.Embed(
+        title="Strefa użytkownika <:icon_beta:1073011966571970641>",
+        description=f"Gratulacje zdobyłeś nowy poziom:\n\n> `Nick:`  {user.mention}\n> `Poziom:`  __*{lvl_start}*__  ->  __*{lvl_end}*__   `Doświadczenie:` {experience}",
+        colour=discord.Colour.green())
+    em1.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
+    channel= client.get_channel(1077550850421047386)
+    await channel.send(embed=em1)
+    users[f'{user.id}']["level"] = lvl_end
 
 client.run(token)
