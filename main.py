@@ -266,19 +266,25 @@ async def add_experience(users, user):
   if not f'{user.id}' in users:
         users[f'{user.id}'] = {}
         users[f'{user.id}']['experience'] = 0
-        users[f'{user.id}']['level'] = 0
+        users[f'{user.id}']['level'] = 1
   users[f'{user.id}']['experience'] += 6
 
 async def level_up(users, user, message):
   experience = users[f'{user.id}']["experience"]
   lvl_start = users[f'{user.id}']["level"]
-  lvl_end = int(experience ** (1 / 4))
+  lvl_end = int(experience ** (1 / 5))
   if lvl_start < lvl_end:
     em1 = discord.Embed(
         title="Strefa użytkownika <:icon_beta:1073011966571970641>",
         description=f"Gratulacje zdobyłeś nowy poziom:\n\n> `Nick:`  {user.mention}\n> `Poziom:`  __*{lvl_start}*__  ->  __*{lvl_end}*__   `Doświadczenie:` {experience}",
         colour=discord.Colour.green())
     em1.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
+
+    role = discord.utils.get(message.guild.roles, name="poziom " + str(lvl_end))
+    await message.author.add_roles(role)
+    if role is None:
+        await user.add_roles(role)
+
     channel= client.get_channel(1077550850421047386)
     await channel.send(embed=em1)
     users[f'{user.id}']["level"] = lvl_end
@@ -297,12 +303,14 @@ async def on_message_delete(message):
 
 @client.event
 async def on_message_edit(message_before, message_after):
-    embed = discord.Embed(title="{} \n Edytował/a wiadomość".format(message_before.author.name),
-                          description="", colour=discord.Colour.red())
-    embed.add_field(name="```" + message_before.content + "```", value=":x:",inline=True)
-    embed.add_field(name="```" + message_after.content + "```", value=":white_check_mark:",inline=True)
+    if message_before.author.bot == False:
 
-    channel = client.get_channel(1079159997444935760)
-    await channel.send(embed=embed)
+        embed = discord.Embed(title="{} \n Edytował/a wiadomość".format(message_before.author.name),
+                          description="", colour=discord.Colour.red())
+        embed.add_field(name="```" + message_before.content + "```", value=":x:",inline=True)
+        embed.add_field(name="```" + message_after.content + "```", value=":white_check_mark:",inline=True)
+
+        channel = client.get_channel(1079159997444935760)
+        await channel.send(embed=embed)
 
 client.run(token)
