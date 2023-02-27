@@ -294,8 +294,10 @@ async def level_up(users, user, message):
 @client.event
 async def on_message_delete(message):
     if message.author.bot == False:
-        embed = discord.Embed(title="{} Usunoł/a wiadmomość".format(message.author.name),
-                              description="", color=0xFF0000)
+        embed = discord.Embed(title="Delete",
+                            description=f"`Nick:` {message.author.mention}",
+                            color=0xFF0000
+                            )
         embed.add_field(name="```" + message.content + "```", value=":x:",inline=True)
 
         channel = client.get_channel(1079159997444935760)
@@ -305,8 +307,10 @@ async def on_message_delete(message):
 async def on_message_edit(message_before, message_after):
     if message_before.author.bot == False:
 
-        embed = discord.Embed(title="{} \n Edytował/a wiadomość".format(message_before.author.name),
-                          description="", colour=discord.Colour.red())
+        embed = discord.Embed(title="Edited",
+                          description=f"`Nick:` {message_before.author.mention}",
+                          colour=discord.Colour.red()
+                          )
         embed.add_field(name="```" + message_before.content + "```", value=":x:",inline=True)
         embed.add_field(name="```" + message_after.content + "```", value=":white_check_mark:",inline=True)
 
