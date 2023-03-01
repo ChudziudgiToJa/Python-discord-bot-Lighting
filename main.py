@@ -39,6 +39,7 @@ async def on_ready():
     client.add_view(ticket_confirm())
     client.add_view(ticket_delete())
 
+    client.add_view(podanie_launcher())
     client.add_view(podanie_confirm())
     client.add_view(podanie_delete())
 
@@ -76,7 +77,9 @@ async def on_command_error(ctx, error):
 @client.command()
 @has_permissions(administrator=True)
 async def ticket(ctx):
-    embed = discord.Embed(title=("Strefa pomocy"), description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji \n\n> Jeżeli interesuje cię dołączenie do gildi kliknij w guzik `Stworz podanie` a zostanie stowrzony kanał z szablonem", color = discord.Colour.green())
+    embed = discord.Embed(title=("Strefa pomocy"),
+                           description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji", color = discord.Colour.green()
+                           )
     embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
     await ctx.send(embed = embed, view = ticket_launcher())
 
@@ -109,31 +112,11 @@ class ticket_launcher(discord.ui.View):
             try: channel = await interaction.guild.create_text_channel(name = f"ticket-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"ticket dla {interaction.user}")
             except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
             await interaction.response.send_message(f"ticket został utworzony {channel.mention}!", ephemeral = True)
-            embed = discord.Embed(title=("Strefa pomocy"), description=f"Opisz swój problem.", color = discord.Colour.green())
+            embed = discord.Embed(title=("Strefa pomocy"),
+                                   description=f"Opisz swój problem.", color = discord.Colour.green()
+                                   )
             embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
             await channel.send(embed=embed, view=ticket_delete())
-    @discord.ui.button(label = "Stworz podanie", style = discord.ButtonStyle.green, custom_id = "podanie_button", emoji="<a:icon_modshield:1073011960603488286>")
-    async def podanie(self, interaction: discord.Interaction, button: discord.ui.Button):
-        ticket_category = utils.get(interaction.guild.categories, name = "podania")
-        if ticket_category is None:
-            ticket_category = await interaction.guild.create_category("podania")
-        interaction.message.author = interaction.user
-        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-        ticket = utils.get(interaction.guild.text_channels, name = f"podanie-{interaction.user.id}")
-        if ticket is not None: await interaction.response.send_message(f"Masz już otwarte podanie! {ticket.mention}!", ephemeral = True)
-        else:
-            overwrites = {
-                interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
-                interaction.user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
-                interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
-            }
-            try: channel = await interaction.guild.create_text_channel(name = f"podanie-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"podanie dla {interaction.user}")
-            except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
-            await interaction.response.send_message(f"podanie zostało utworzone {channel.mention}!", ephemeral = True)
-            embed = discord.Embed(title=("Strefa pomocy"), description=f"Wypełnij wzór i wyślij go na chat`cie ```Wzór Podania :\n1. nick:\n2. Wiek:\n3. Nick w Minecraft ? :\n4. Jak oceniasz swoje pvp -/10 ? :\n5. Ile czasu grasz w Minecraft ? :\n6. Premium/Nonpremium?:\n7. Ile dziennie możesz poświecić czasu na gildię ? :\n8. Umiesz ładnie budować ?:\n9. Co wprowadziłbyś do gildii ?:\n10. Posiadasz :\n-Sprawny Mikrofon\n-Mutacje\n11. Umiesz pracować w grupie ?:\n12. Na stałe czy raczej na jakiś czas ?:```", color = discord.Colour.green())
-            embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
-            await channel.send(embed=embed, view=podanie_delete())
 
 
 class ticket_delete(discord.ui.View):
@@ -156,17 +139,78 @@ class ticket_confirm(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
 
-    @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red, custom_id = "confirm", emoji="<a:icon_delete:1073011964537753711>")
+    @discord.ui.button(label = "zatwierdz",
+                        style = discord.ButtonStyle.red,
+                        custom_id = "confirm",
+                        emoji="<a:icon_delete:1073011964537753711>"
+                        )
     async def confirm_button(self, interaction, button):
 
         try: await interaction.channel.delete()
         except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
 
+# - = - = - = - = - = padania = - = - = - = - = - =
+
+@client.command()
+@has_permissions(administrator=True)
+async def podanie(ctx):
+    embed = discord.Embed(title=("Strefa pomocy"),
+                           description=f"> Jeżeli interesuje cię dołączenie do gildi kliknij w guzik `Stworz podanie` a zostanie stowrzony kanał z szablonem do wypełnienia", color = discord.Colour.green()
+                           )
+    embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
+    await ctx.send(embed = embed, view = ticket_launcher())
+
+@podanie.error
+async def my_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
+
+class podanie_launcher(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout = None)
+
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 300, commands.BucketType.member)
+
+    @discord.ui.button(label = "Stworz podanie",
+                        style = discord.ButtonStyle.green,
+                        custom_id = "podanie_button",
+                        emoji="<a:icon_modshield:1073011960603488286>"
+                        )
+    async def podanie(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ticket_category = utils.get(interaction.guild.categories, name = "podania")
+        if ticket_category is None:
+            ticket_category = await interaction.guild.create_category("podania")
+        interaction.message.author = interaction.user
+        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        ticket = utils.get(interaction.guild.text_channels, name = f"podanie-{interaction.user.id}")
+        if ticket is not None: await interaction.response.send_message(f"Masz już otwarte podanie! {ticket.mention}!", ephemeral = True)
+        else:
+            overwrites = {
+                interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
+                interaction.user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
+                interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
+            }
+            try: channel = await interaction.guild.create_text_channel(name = f"podanie-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"podanie dla {interaction.user}")
+            except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
+            await interaction.response.send_message(f"podanie zostało utworzone {channel.mention}!", ephemeral = True)
+            embed = discord.Embed(title=("Strefa pomocy"),
+                                   description=f"Wypełnij wzór i wyślij go na chat`cie ```Wzór Podania :\n1. nick:\n2. Wiek:\n3. Nick w Minecraft ? :\n4. Jak oceniasz swoje pvp -/10 ? :\n5. Ile czasu grasz w Minecraft ? :\n6. Premium/Nonpremium?:\n7. Ile dziennie możesz poświecić czasu na gildię ? :\n8. Umiesz ładnie budować ?:\n9. Co wprowadziłbyś do gildii ?:\n10. Posiadasz :\n-Sprawny Mikrofon\n-Mutacje\n11. Umiesz pracować w grupie ?:\n12. Na stałe czy raczej na jakiś czas ?:```", color = discord.Colour.green()
+                                   )
+            embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
+            await channel.send(embed=embed, view=podanie_delete())
+
 class podanie_delete(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
+
         self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
-    @discord.ui.button(label = "Zamknij", style = discord.ButtonStyle.red, custom_id = "close", emoji="<a:icon_delete:1073011964537753711>")
+
+    @discord.ui.button(label = "Zamknij",
+                        style = discord.ButtonStyle.red,
+                        custom_id = "close",
+                        emoji="<a:icon_delete:1073011964537753711>"
+                        )
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
@@ -178,9 +222,12 @@ class podanie_delete(discord.ui.View):
 class podanie_confirm(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
-    @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red, custom_id = "confirm", emoji="<a:icon_delete:1073011964537753711>")
-    async def confirm_button(self, interaction, button):
 
+    @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red,
+                        custom_id = "confirm",
+                        emoji="<a:icon_delete:1073011964537753711>"
+                        )
+    async def confirm_button(self, interaction, button):
         try: await interaction.channel.delete()
         except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
 
@@ -189,7 +236,9 @@ class podanie_confirm(discord.ui.View):
 @client.command()
 @has_permissions(administrator=True)
 async def kategorie(ctx):
-    embed = discord.Embed(title=('Kategorie serwerów'), description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.green())  
+    embed = discord.Embed(title=('Kategorie serwerów'),
+                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.green()
+                           )  
     embed.set_image(url='https://i.imgur.com/wPjXE9w.jpg')
     await ctx.send(embed = embed, view = kategoria_luncher())
 
@@ -204,7 +253,11 @@ class kategoria_luncher(discord.ui.View):
     self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
 
 
-  @discord.ui.button(label = "Serwis 7Light", custom_id = "button_role1", emoji="<a:barrier_block:1073011973639385098>" ,style = discord.ButtonStyle.green)
+  @discord.ui.button(label = "Serwis 7Light",
+                    custom_id = "button_role1",
+                    emoji="<a:barrier_block:1073011973639385098>",
+                    style = discord.ButtonStyle.green
+                    )
   async def button_role1(self, interaction: discord.Interaction, button: discord.ui.Button):
 
     interaction.message.author = interaction.user
@@ -220,7 +273,11 @@ class kategoria_luncher(discord.ui.View):
     else:
       await user.add_roles(user.guild.get_role(role1))
       await interaction.response.send_message("Nadano kategorie (7Light)", ephemeral = True)
-  @discord.ui.button(label = "Gildia NWN", custom_id = "button_role2", emoji="<a:diamond_sword:1073011971043115068>" ,style = discord.ButtonStyle.blurple)
+  @discord.ui.button(label = "Gildia NWN",
+                    custom_id = "button_role2",
+                    emoji="<a:diamond_sword:1073011971043115068>",
+                    style = discord.ButtonStyle.blurple
+                    )
   async def button_role2(self, interaction: discord.Interaction, button: discord.ui.Button):
 
     interaction.message.author = interaction.user
@@ -277,7 +334,8 @@ async def level_up(users, user, message):
     em1 = discord.Embed(
         title="Strefa użytkownika <:icon_beta:1073011966571970641>",
         description=f"Gratulacje zdobyłeś nowy poziom:\n\n> `Nick:`  {user.mention}\n> `Poziom:`  __*{lvl_start}*__  ->  __*{lvl_end}*__   `Doświadczenie:` {experience}",
-        colour=discord.Colour.green())
+        colour=discord.Colour.green()
+        )
     em1.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
 
     role = discord.utils.get(message.guild.roles, name="poziom " + str(lvl_end))
@@ -316,5 +374,6 @@ async def on_message_edit(message_before, message_after):
 
         channel = client.get_channel(1079159997444935760)
         await channel.send(embed=embed)
+
 
 client.run(token)
