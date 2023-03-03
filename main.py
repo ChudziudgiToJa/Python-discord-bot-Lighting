@@ -78,8 +78,7 @@ async def on_command_error(ctx, error):
 @has_permissions(administrator=True)
 async def ticket(ctx):
     embed = discord.Embed(title=("Strefa pomocy"),
-                           description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji", color = discord.Colour.green()
-                           )
+                           description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji", color = discord.Colour.green())
     embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
     await ctx.send(embed = embed, view = ticket_launcher())
 
@@ -95,6 +94,10 @@ class ticket_launcher(discord.ui.View):
 
     @discord.ui.button(label = "Stworz ticket", style = discord.ButtonStyle.green, custom_id = "ticket_button", emoji="<a:icon_modshield:1073011960603488286>")
     async def ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id in [user['user_id'] for user in blacklist['blacklist']]:
+            await interaction.response.send_message(f"Posiadasz *BLACKLISTE*, co to oznacza? zostałeś wykluczony z użytku 7bota", ephemeral = True)
+            return
+        
         ticket_category = utils.get(interaction.guild.categories, name = "ticket")
         if ticket_category is None:
             ticket_category = await interaction.guild.create_category("ticket")
@@ -113,8 +116,7 @@ class ticket_launcher(discord.ui.View):
             except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
             await interaction.response.send_message(f"ticket został utworzony {channel.mention}!", ephemeral = True)
             embed = discord.Embed(title=("Strefa pomocy"),
-                                   description=f"Opisz swój problem.", color = discord.Colour.green()
-                                   )
+                                   description=f"Opisz swój problem.", color = discord.Colour.green())
             embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
             await channel.send(embed=embed, view=ticket_delete())
 
@@ -142,8 +144,7 @@ class ticket_confirm(discord.ui.View):
     @discord.ui.button(label = "zatwierdz",
                         style = discord.ButtonStyle.red,
                         custom_id = "confirm",
-                        emoji="<a:icon_delete:1073011964537753711>"
-                        )
+                        emoji="<a:icon_delete:1073011964537753711>")
     async def confirm_button(self, interaction, button):
 
         try: await interaction.channel.delete()
@@ -155,8 +156,7 @@ class ticket_confirm(discord.ui.View):
 @has_permissions(administrator=True)
 async def podanie(ctx):
     embed = discord.Embed(title=("Strefa pomocy"),
-                           description=f"> Jeżeli interesuje cię dołączenie do gildi kliknij w guzik `Stworz podanie` a zostanie stowrzony kanał z szablonem do wypełnienia", color = discord.Colour.green()
-                           )
+                           description=f"> Jeżeli interesuje cię dołączenie do gildi kliknij w guzik `Stworz podanie` a zostanie stowrzony kanał z szablonem do wypełnienia", color = discord.Colour.green())
     embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
     await ctx.send(embed = embed, view = ticket_launcher())
 
@@ -174,9 +174,12 @@ class podanie_launcher(discord.ui.View):
     @discord.ui.button(label = "Stworz podanie",
                         style = discord.ButtonStyle.green,
                         custom_id = "podanie_button",
-                        emoji="<a:icon_modshield:1073011960603488286>"
-                        )
+                        emoji="<a:icon_modshield:1073011960603488286>")
     async def podanie(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id in [user['user_id'] for user in blacklist['blacklist']]:
+            await interaction.response.send_message(f"Posiadasz *BLACKLISTE*, co to oznacza? zostałeś wykluczony z użytku 7bota", ephemeral = True)
+            return
+        
         ticket_category = utils.get(interaction.guild.categories, name = "podania")
         if ticket_category is None:
             ticket_category = await interaction.guild.create_category("podania")
@@ -195,8 +198,7 @@ class podanie_launcher(discord.ui.View):
             except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
             await interaction.response.send_message(f"podanie zostało utworzone {channel.mention}!", ephemeral = True)
             embed = discord.Embed(title=("Strefa pomocy"),
-                                   description=f"Wypełnij wzór i wyślij go na chat`cie ```Wzór Podania :\n1. nick:\n2. Wiek:\n3. Nick w Minecraft ? :\n4. Jak oceniasz swoje pvp -/10 ? :\n5. Ile czasu grasz w Minecraft ? :\n6. Premium/Nonpremium?:\n7. Ile dziennie możesz poświecić czasu na gildię ? :\n8. Umiesz ładnie budować ?:\n9. Co wprowadziłbyś do gildii ?:\n10. Posiadasz :\n-Sprawny Mikrofon\n-Mutacje\n11. Umiesz pracować w grupie ?:\n12. Na stałe czy raczej na jakiś czas ?:```", color = discord.Colour.green()
-                                   )
+                                   description=f"Wypełnij wzór i wyślij go na chat`cie ```Wzór Podania :\n1. nick:\n2. Wiek:\n3. Nick w Minecraft ? :\n4. Jak oceniasz swoje pvp -/10 ? :\n5. Ile czasu grasz w Minecraft ? :\n6. Premium/Nonpremium?:\n7. Ile dziennie możesz poświecić czasu na gildię ? :\n8. Umiesz ładnie budować ?:\n9. Co wprowadziłbyś do gildii ?:\n10. Posiadasz :\n-Sprawny Mikrofon\n-Mutacje\n11. Umiesz pracować w grupie ?:\n12. Na stałe czy raczej na jakiś czas ?:```", color = discord.Colour.green())
             embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
             await channel.send(embed=embed, view=podanie_delete())
 
@@ -209,8 +211,7 @@ class podanie_delete(discord.ui.View):
     @discord.ui.button(label = "Zamknij",
                         style = discord.ButtonStyle.red,
                         custom_id = "close",
-                        emoji="<a:icon_delete:1073011964537753711>"
-                        )
+                        emoji="<a:icon_delete:1073011964537753711>")
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
@@ -225,8 +226,7 @@ class podanie_confirm(discord.ui.View):
 
     @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red,
                         custom_id = "confirm",
-                        emoji="<a:icon_delete:1073011964537753711>"
-                        )
+                        emoji="<a:icon_delete:1073011964537753711>")
     async def confirm_button(self, interaction, button):
         try: await interaction.channel.delete()
         except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
@@ -237,8 +237,7 @@ class podanie_confirm(discord.ui.View):
 @has_permissions(administrator=True)
 async def kategorie(ctx):
     embed = discord.Embed(title=('Kategorie serwerów'),
-                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.green()
-                           )  
+                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.green())  
     embed.set_image(url='https://i.imgur.com/wPjXE9w.jpg')
     await ctx.send(embed = embed, view = kategoria_luncher())
 
@@ -256,8 +255,7 @@ class kategoria_luncher(discord.ui.View):
   @discord.ui.button(label = "Serwis 7Light",
                     custom_id = "button_role1",
                     emoji="<a:barrier_block:1073011973639385098>",
-                    style = discord.ButtonStyle.green
-                    )
+                    style = discord.ButtonStyle.green)
   async def button_role1(self, interaction: discord.Interaction, button: discord.ui.Button):
 
     interaction.message.author = interaction.user
@@ -276,8 +274,7 @@ class kategoria_luncher(discord.ui.View):
   @discord.ui.button(label = "Gildia NWN",
                     custom_id = "button_role2",
                     emoji="<a:diamond_sword:1073011971043115068>",
-                    style = discord.ButtonStyle.blurple
-                    )
+                    style = discord.ButtonStyle.blurple)
   async def button_role2(self, interaction: discord.Interaction, button: discord.ui.Button):
 
     interaction.message.author = interaction.user
@@ -354,8 +351,7 @@ async def on_message_delete(message):
     if message.author.bot == False:
         embed = discord.Embed(title="Delete",
                             description=f"`Nick:` {message.author.mention}",
-                            color=0xFF0000
-                            )
+                            color=0xFF0000)
         embed.add_field(name="```" + message.content + "```", value=":x:",inline=True)
 
         channel = client.get_channel(1079159997444935760)
@@ -367,13 +363,61 @@ async def on_message_edit(message_before, message_after):
 
         embed = discord.Embed(title="Edited",
                           description=f"`Nick:` {message_before.author.mention}",
-                          colour=discord.Colour.red()
-                          )
+                          colour=discord.Colour.red())  
         embed.add_field(name="```" + message_before.content + "```", value=":x:",inline=True)
         embed.add_field(name="```" + message_after.content + "```", value=":white_check_mark:",inline=True)
 
         channel = client.get_channel(1079159997444935760)
         await channel.send(embed=embed)
 
+# - = - = - = - = - = blacklist = - = - = - = - = - =
+
+with open('blacklist.json') as f:
+    blacklist = json.load(f)
+
+@client.event
+async def on_message(message):
+    if message.author.id in [user['user_id'] for user in blacklist['blacklist']]:
+        return
+    else:
+        await client.process_commands(message)
+
+@client.command()
+@has_permissions(administrator=True)
+async def b_add(ctx, user_id: int, powód: str):
+    for user in blacklist['blacklist']:
+        if user['user_id'] == user_id:
+            await ctx.send(f'Użytkownik o ID {user_id} już istnieje na czarnej liście.')
+            return
+    if user_id == 441492546028306436:
+        await ctx.send(f'Użytkownik o ID {user_id} jest niemożłiwy do dodania.')
+        return
+    blacklist['blacklist'].append({'user_id': user_id, 'reason': powód})
+    with open('blacklist.json', 'w') as f:
+        json.dump(blacklist, f, indent=4)
+    await ctx.send(f'Użytkownik o ID {user_id} został dodany do czarnej listy.')
+    channel = client.get_channel(1081320004814901288)
+    embed = discord.Embed(title="BLACKLIST",
+        description=f"Dodano do listy `{user_id}`\npowód: `{powód}`",
+        colour=discord.Colour.red())
+    await channel.send(embed=embed)
+
+@client.command()
+@has_permissions(administrator=True)
+async def b_remove(ctx, user_id: int):
+    for i, user in enumerate(blacklist['blacklist']):
+        if user['user_id'] == user_id:
+            blacklist['blacklist'].pop(i)
+            with open('blacklist.json', 'w') as f:
+                json.dump(blacklist, f, indent=4)
+            await ctx.send(f'Użytkownik o ID {user_id} został usunięty z czarnej listy.')
+            channel = client.get_channel(1081320004814901288)
+            embed = discord.Embed(title="BLACKLIST",
+            description=f"Usunięto `{user_id}` z listy",
+            colour=discord.Colour.red()
+                )
+            await channel.send(embed=embed)
+            return
+    await ctx.send('Nie znaleziono użytkownika na czarnej liście.')
 
 client.run(token)

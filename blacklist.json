@@ -1,0 +1,28 @@
+{
+    "blacklist": [
+        {
+            "user_id": 123456789,
+            "pow\u00f3d": "Rozpowszechnianie spamu"
+        },
+        {
+            "user_id": 123,
+            "reason": "test"
+        },
+        {
+            "user_id": 1234,
+            "reason": "test"
+        },
+        {
+            "user_id": 94129412,
+            "reason": "test"
+        },
+        {
+            "user_id": 512512,
+            "reason": "test"
+        },
+        {
+            "user_id": 125125,
+            "reason": "tset"
+        }
+    ]
+}
