@@ -1,4 +1,4 @@
-import discord, json, os, asyncio, random
+import discord, json, os, asyncio, random, traceback, openai
 
 from discord import utils
 from discord.ext import commands
@@ -10,6 +10,8 @@ with open('config.json', 'r') as f:
     token = data['TOKEN']
     prefix = data['PREFIX']
     aktywnosc = data['AKTYWNOSC']
+    owner_id = data['OWNER_ID']
+    api_key = data['API_KEY']
     
 client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all())
 client.remove_command("help")
@@ -25,6 +27,12 @@ async def on_member_join(member):
         await member.add_roles(role)
 
 # - = - = - = - = - = client = - = - = - = - = - =
+
+@client.event
+async def on_error(event, *args, **kwargs):
+    error_message = traceback.format_exc()
+    user = await client.fetch_user(owner_id)
+    await user.send(f"**Wystąpił błąd:**\n```\n{error_message}\n```")
 
 @client.event
 async def on_ready():
@@ -290,6 +298,7 @@ class kategoria_luncher(discord.ui.View):
     else:
       await user.add_roles(user.guild.get_role(role2))
       await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
+      
 
 # - = - = - = - = - = lvl = - = - = - = - = - =
 
@@ -321,12 +330,12 @@ async def add_experience(users, user):
         users[f'{user.id}'] = {}
         users[f'{user.id}']['experience'] = 0
         users[f'{user.id}']['level'] = 1
-  users[f'{user.id}']['experience'] += 6
+  users[f'{user.id}']['experience'] += 10
 
 async def level_up(users, user, message):
   experience = users[f'{user.id}']["experience"]
   lvl_start = users[f'{user.id}']["level"]
-  lvl_end = int(experience ** (1 / 5))
+  lvl_end = int(experience ** (1 / 3))
   if lvl_start < lvl_end:
     em1 = discord.Embed(
         title="Strefa użytkownika <:icon_beta:1073011966571970641>",
@@ -419,5 +428,33 @@ async def b_remove(ctx, user_id: int):
             await channel.send(embed=embed)
             return
     await ctx.send('Nie znaleziono użytkownika na czarnej liście.')
+
+openai.api_key = api_key
+model_engine = "davinci"
+
+@client.command()
+async def chat(ctx, *args):
+    allowed_channel_id = 1084634077061201920
+    
+    if ctx.channel.id != allowed_channel_id:
+        await ctx.send("Ta komenda jest dostępna tylko na kanale <#1084634077061201920>")
+        return
+
+    user_input = ' '.join(args)
+    response = openai.Completion.create(
+        engine=model_engine,
+        prompt=user_input,
+        max_tokens=200,
+        n=1,
+        stop=None,
+        temperature=0.7,
+    )
+    embed = discord.Embed(title="Sztuczna inteligencja: <:icon_beta:1073011966571970641>",
+                          description=response.choices[0].text,
+                          )
+    await ctx.send(embed=embed)
+
+
+
 
 client.run(token)
