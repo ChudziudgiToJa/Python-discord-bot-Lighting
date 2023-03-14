@@ -416,7 +416,7 @@ async def on_message(message):
 
 @client.command()
 @has_permissions(administrator=True)
-async def b_add(ctx, user_id: int, powód: str):
+async def b_add(ctx, user_id: int, *, powód: str):
     for user in blacklist['blacklist']:
         if user['user_id'] == user_id:
             await ctx.send(f'Użytkownik o ID {user_id} już istnieje na czarnej liście.')
@@ -452,6 +452,9 @@ async def b_remove(ctx, user_id: int):
             return
     await ctx.send('Nie znaleziono użytkownika na czarnej liście.')
 
+# - = - = - = - = - = openai = - = - = - = - = - =
+
+
 openai.api_key = api_key
 model_engine = "davinci"
 
@@ -477,6 +480,10 @@ async def chat(ctx, *args):
                           )
     await ctx.send(embed=embed)
 
+# - = - = - = - = - = cmds = - = - = - 
+@client.command()
+async def changelog(ctx, *args):
+    
 
 
 
