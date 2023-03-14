@@ -12,6 +12,7 @@ with open('config.json', 'r') as f:
     aktywnosc = data['AKTYWNOSC']
     owner_id = data['OWNER_ID']
     api_key = data['API_KEY']
+    version = data['VERSION']
     
 client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all())
 client.remove_command("help")
@@ -63,11 +64,13 @@ async def update_channel_member_name():
         await asyncio.sleep(600)
 
 async def update_channel_guild_name():
-    channel = client.get_channel(1073366116883247114)
+    channel1 = client.get_channel(1073366116883247114)
+    channel2 = client.get_channel(1081543873068810281)
     guild = discord.utils.get(client.guilds, name="Serwis 7Light & Gildia NWN")
-    roles = [discord.utils.get(guild.roles, name=role_name) for role_name in ["Lider NWN", "VLider NWN", "Członek NWN", "Rekrut NWN"]]
+    roles = [discord.utils.get(guild.roles, name=role_name) for role_name in ["Lider NWN", "VLider NWN", "Rekruter NWN" ,"Członek NWN", "Rekrut NWN"]]
     members = [member for role in roles for member in guild.members if role in member.roles]
-    await channel.edit(name=f'Status gildi {len(members)}/100')
+    await channel1.edit(name=f'Status gildi {len(members)}/100')
+    await channel2.edit(name=f"Wersja: {version}")
     await asyncio.sleep(600)
 
 async def update_status_name():
@@ -123,6 +126,9 @@ class ticket_launcher(discord.ui.View):
             try: channel = await interaction.guild.create_text_channel(name = f"ticket-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"ticket dla {interaction.user}")
             except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
             await interaction.response.send_message(f"ticket został utworzony {channel.mention}!", ephemeral = True)
+            log = 1085233096720396308
+            channel_log = client.get_channel(log)
+            await channel_log.send(f"{interaction.user} utworzył ticket")
             embed = discord.Embed(title=("Strefa pomocy"),
                                    description=f"Opisz swój problem.", color = discord.Colour.green())
             embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
@@ -154,9 +160,15 @@ class ticket_confirm(discord.ui.View):
                         custom_id = "confirm",
                         emoji="<a:icon_delete:1073011964537753711>")
     async def confirm_button(self, interaction, button):
-
-        try: await interaction.channel.delete()
-        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
+        user = interaction.user
+        if user.guild_permissions.administrator:
+            await interaction.channel.delete()
+            log = 1085233096720396308
+            channel_log = client.get_channel(log)
+            await channel_log.send(f"{interaction.user} zamyka ticket")
+        else:
+            await interaction.response.send_message("Nie posiadasz permisji!", ephemeral=True)
+            return
 
 # - = - = - = - = - = padania = - = - = - = - = - =
 
@@ -236,8 +248,12 @@ class podanie_confirm(discord.ui.View):
                         custom_id = "confirm",
                         emoji="<a:icon_delete:1073011964537753711>")
     async def confirm_button(self, interaction, button):
-        try: await interaction.channel.delete()
-        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
+        user = interaction.user
+        if user.guild_permissions.administrator:
+            await interaction.channel.delete()
+        else:
+            await interaction.response.send_message("Nie posiadasz permisji!", ephemeral=True)
+            return
 
 # - = - = - = - = - = kategorie = - = - = - = - = - =
 
@@ -269,16 +285,20 @@ class kategoria_luncher(discord.ui.View):
     interaction.message.author = interaction.user
     retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
     if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-
+    log = 1084629912217997372
     role1 = 999421620894568498
     user = interaction.user
     if role1 in [y.id for y in user.roles]:
       await user.remove_roles(user.guild.get_role(role1))
 
       await interaction.response.send_message("Usunięto kategorie (7Light)", ephemeral = True)
+      channel = client.get_channel(log)
+      await channel.send(f"{interaction.user.display_name} Usunięto kategorie (7Light)")
     else:
       await user.add_roles(user.guild.get_role(role1))
       await interaction.response.send_message("Nadano kategorie (7Light)", ephemeral = True)
+      channel = client.get_channel(log)
+      await channel.send(f"{interaction.user.display_name} Nadano kategorie (7Light)")
   @discord.ui.button(label = "Gildia NWN",
                     custom_id = "button_role2",
                     emoji="<a:diamond_sword:1073011971043115068>",
@@ -288,16 +308,19 @@ class kategoria_luncher(discord.ui.View):
     interaction.message.author = interaction.user
     retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
     if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-
+    log = 1084629912217997372
     role2 = 1073212315987611658
     user = interaction.user
     if role2 in [y.id for y in user.roles]:
       await user.remove_roles(user.guild.get_role(role2))
-
       await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
+      channel_log = client.get_channel(log)
+      await channel_log.send(f"{interaction.user.display_name} Usunięto kategorie (Gildia NWN)")
     else:
       await user.add_roles(user.guild.get_role(role2))
       await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
+      channel_log = client.get_channel(log)
+      await channel_log.send(f"{interaction.user.display_name} Nadano kategorie (Gildia NWN)")
       
 
 # - = - = - = - = - = lvl = - = - = - = - = - =
@@ -330,12 +353,12 @@ async def add_experience(users, user):
         users[f'{user.id}'] = {}
         users[f'{user.id}']['experience'] = 0
         users[f'{user.id}']['level'] = 1
-  users[f'{user.id}']['experience'] += 10
+  users[f'{user.id}']['experience'] += random.randint(20,5)
 
 async def level_up(users, user, message):
   experience = users[f'{user.id}']["experience"]
   lvl_start = users[f'{user.id}']["level"]
-  lvl_end = int(experience ** (1 / 3))
+  lvl_end = int(experience ** (1 / 2))
   if lvl_start < lvl_end:
     em1 = discord.Embed(
         title="Strefa użytkownika <:icon_beta:1073011966571970641>",
