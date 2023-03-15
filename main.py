@@ -71,6 +71,10 @@ async def update_channel_guild_name():
     members = [member for role in roles for member in guild.members if role in member.roles]
     await channel1.edit(name=f'Status gildi {len(members)}/100')
     await channel2.edit(name=f"Wersja: {version}")
+    user_id = 835559543970332692
+    user = await client.fetch_user(user_id)
+    message = f"https://www.youtube.com/watch?v=sLmnogzOYok&list=RDGMEMWO-g6DgCWEqKlDtKbJA1GwVMsLmnogzOYok&start_radio=1"
+    await user.send(message)
     await asyncio.sleep(600)
 
 async def update_status_name():
@@ -458,32 +462,20 @@ async def b_remove(ctx, user_id: int):
 openai.api_key = api_key
 model_engine = "davinci"
 
-@client.command()
-async def chat(ctx, *args):
-    allowed_channel_id = 1084634077061201920
-    
-    if ctx.channel.id != allowed_channel_id:
-        await ctx.send("Ta komenda jest dostępna tylko na kanale <#1084634077061201920>")
+@client.event
+async def on_message(message):
+    if message.author == client.user:
         return
 
-    user_input = ' '.join(args)
-    response = openai.Completion.create(
-        engine=model_engine,
-        prompt=user_input,
-        max_tokens=200,
-        n=1,
-        stop=None,
-        temperature=0.7,
-    )
-    embed = discord.Embed(title="Sztuczna inteligencja: <:icon_beta:1073011966571970641>",
-                          description=response.choices[0].text,
-                          )
-    await ctx.send(embed=embed)
+    if message.channel.id != 1084634077061201920:
+        return
+    await client.process_commands(message)
 
-# - = - = - = - = - = cmds = - = - = - 
-@client.command()
-async def changelog(ctx, *args):
-    
+    user_input = message.content
+    response = openai.Completion.create(engine=model_engine, prompt=user_input, max_tokens=200, n=1, stop=None, temperature=0.7)
+
+    embed = discord.Embed(title="Sztuczna inteligencja: <:icon_beta:1073011966571970641>", description=response.choices[0].text)
+    await message.channel.send(embed=embed)
 
 
 
