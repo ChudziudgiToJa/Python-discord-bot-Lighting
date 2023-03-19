@@ -118,7 +118,7 @@ class ticket_launcher(discord.ui.View):
             ticket_category = await interaction.guild.create_category("ticket")
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
         ticket = utils.get(interaction.guild.text_channels, name = f"ticket-{interaction.user.id}")
         if ticket is not None: await interaction.response.send_message(f"Masz już otwarty ticket! {ticket.mention}!", ephemeral = True)
         else:
@@ -149,7 +149,7 @@ class ticket_delete(discord.ui.View):
 
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
 
         embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to zgłoszenie", color = discord.Colour.green())
         try: await interaction.response.send_message(embed=embed, view=ticket_confirm(), ephemeral = True)
@@ -209,7 +209,7 @@ class podanie_launcher(discord.ui.View):
             ticket_category = await interaction.guild.create_category("podania")
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
         ticket = utils.get(interaction.guild.text_channels, name = f"podanie-{interaction.user.id}")
         if ticket is not None: await interaction.response.send_message(f"Masz już otwarte podanie! {ticket.mention}!", ephemeral = True)
         else:
@@ -239,7 +239,7 @@ class podanie_delete(discord.ui.View):
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
         embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to podanie", color = discord.Colour.green())
         try: await interaction.response.send_message(embed=embed, view=podanie_confirm(), ephemeral = True)
         except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
@@ -288,7 +288,7 @@ class kategoria_luncher(discord.ui.View):
 
     interaction.message.author = interaction.user
     retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-    if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+    if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
     log = 1084629912217997372
     role1 = 999421620894568498
     user = interaction.user
@@ -311,7 +311,7 @@ class kategoria_luncher(discord.ui.View):
 
     interaction.message.author = interaction.user
     retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-    if retry: return await interaction.response.send_message(f"Sprubój ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+    if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
     log = 1084629912217997372
     role2 = 1073212315987611658
     user = interaction.user
