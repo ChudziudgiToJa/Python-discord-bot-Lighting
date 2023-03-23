@@ -71,10 +71,6 @@ async def update_channel_guild_name():
     members = [member for role in roles for member in guild.members if role in member.roles]
     await channel1.edit(name=f'Status gildi {len(members)}/100')
     await channel2.edit(name=f"Wersja: {version}")
-    user_id = 835559543970332692
-    user = await client.fetch_user(user_id)
-    message = f"https://www.youtube.com/watch?v=sLmnogzOYok&list=RDGMEMWO-g6DgCWEqKlDtKbJA1GwVMsLmnogzOYok&start_radio=1"
-    await user.send(message)
     await asyncio.sleep(600)
 
 async def update_status_name():
@@ -265,8 +261,8 @@ class podanie_confirm(discord.ui.View):
 @has_permissions(administrator=True)
 async def kategorie(ctx):
     embed = discord.Embed(title=('Kategorie serwerów'),
-                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.green())  
-    embed.set_image(url='https://i.imgur.com/wPjXE9w.jpg')
+                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.dark_purple())  
+    embed.set_image(url='https://imgur.com/a/ayBFhq4')
     await ctx.send(embed = embed, view = kategoria_luncher())
 
 @kategorie.error
@@ -458,25 +454,36 @@ async def b_remove(ctx, user_id: int):
 
 # - = - = - = - = - = openai = - = - = - = - = - =
 
-
 openai.api_key = api_key
-model_engine = "davinci"
+model_engine = "text-davinci-003"
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.channel.id != 1084634077061201920:
-        return
-    await client.process_commands(message)
+    if message.channel.id == 1084634077061201920:
+        user_input = message.content
 
-    user_input = message.content
-    response = openai.Completion.create(engine=model_engine, prompt=user_input, max_tokens=200, n=1, stop=None, temperature=0.7)
+        response = openai.Completion.create(engine=model_engine, prompt=user_input, max_tokens=500, n=1, stop=None, temperature=1.0)
+        embed = discord.Embed(title="Sztuczna inteligencja: <:icon_beta:1073011966571970641>", description=response.choices[0].text)
+        await message.channel.send(embed=embed)
+    else:
+        await client.process_commands(message)
 
-    embed = discord.Embed(title="Sztuczna inteligencja: <:icon_beta:1073011966571970641>", description=response.choices[0].text)
-    await message.channel.send(embed=embed)
 
+@client.command()
+@has_permissions(administrator=True)
+async def nadaj(ctx, ranga: discord.Role, member: discord.Member):
+    await member.add_roles(ranga)
+    await ctx.send(f'Nadano rolę {ranga} użytkownikowi {member}')
+    embed = discord.Embed(title="Nadano role: <:icon_beta:1073011966571970641>", description=f"> *{member}* otrzymał {ranga}")
+    channel = client.get_channel(1088120369216491550)
+    channel,send(embed=embed)
 
+@nadaj.error
+async def my_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
 
 client.run(token)

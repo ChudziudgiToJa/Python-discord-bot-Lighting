@@ -27,6 +27,10 @@
         {
             "user_id": 125127012,
             "reason": "spam"
+        },
+        {
+            "user_id": 12890501280925,
+            "reason": "test"
         }
     ]
 }
