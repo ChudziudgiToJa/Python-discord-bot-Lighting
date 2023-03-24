@@ -508,6 +508,6 @@ class chat_open_modal(discord.ui.View):
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
         if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!",ephemeral=True)
-        await interaction.response.send_modal(end_modal())
+        await interaction.response.send_modal(chat_end_modal())
 
 client.run(token)
