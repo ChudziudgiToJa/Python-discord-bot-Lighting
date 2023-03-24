@@ -3,6 +3,7 @@ import discord, json, os, asyncio, random, traceback, openai
 from discord import utils
 from discord.ext import commands
 from discord.ext.commands import has_permissions
+from discord import ui
 from datetime import datetime
 
 with open('config.json', 'r') as f:
@@ -14,8 +15,7 @@ with open('config.json', 'r') as f:
     api_key = data['API_KEY']
     version = data['VERSION']
     
-client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all())
-client.remove_command("help")
+client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all(), help_command=None)
 
 
 # - = - = - = - = - = rangs = - = - = - = - = - =
@@ -31,6 +31,12 @@ async def on_member_join(member):
 
 @client.event
 async def on_error(event, *args, **kwargs):
+    error_message = traceback.format_exc()
+    user = await client.fetch_user(owner_id)
+    await user.send(f"**Wystąpił błąd:**\n```\n{error_message}\n```")
+
+@client.event
+async def on_error(open_modal, *args, **kwargs):
     error_message = traceback.format_exc()
     user = await client.fetch_user(owner_id)
     await user.send(f"**Wystąpił błąd:**\n```\n{error_message}\n```")
@@ -53,6 +59,8 @@ async def on_ready():
     client.add_view(podanie_delete())
 
     client.add_view(kategoria_luncher())
+
+    client.add_view(chat_open_modal())
 
 # - = - = - = - = - = loops = - = - = - = - = - =
 
@@ -454,36 +462,52 @@ async def b_remove(ctx, user_id: int):
 
 # - = - = - = - = - = openai = - = - = - = - = - =
 
-openai.api_key = api_key
-model_engine = "text-davinci-003"
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if message.channel.id == 1084634077061201920:
-        user_input = message.content
-
-        response = openai.Completion.create(engine=model_engine, prompt=user_input, max_tokens=500, n=1, stop=None, temperature=1.0)
-        embed = discord.Embed(title="Sztuczna inteligencja: <:icon_beta:1073011966571970641>", description=response.choices[0].text)
-        await message.channel.send(embed=embed)
-    else:
-        await client.process_commands(message)
-
-
 @client.command()
-@has_permissions(administrator=True)
-async def nadaj(ctx, ranga: discord.Role, member: discord.Member):
-    await member.add_roles(ranga)
-    await ctx.send(f'Nadano rolę {ranga} użytkownikowi {member}')
-    embed = discord.Embed(title="Nadano role: <:icon_beta:1073011966571970641>", description=f"> *{member}* otrzymał {ranga}")
-    channel = client.get_channel(1088120369216491550)
-    channel,send(embed=embed)
+@commands.has_permissions(administrator=True)
+async def chat(ctx):
+    embed = discord.Embed(title='Sztuczna inteligencja <:icon_beta:1073011966571970641>',
+                          description=f"> Aby zadać pytanie sztucznej inteligencji.\n> kliknij w guzik `Otwórz chat` i zadaj pytanie w podanym polu", color=discord.Colour.green())
+    await ctx.send(embed=embed, view=chat_open_modal())
 
-@nadaj.error
+@chat.error
 async def my_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
+
+class chat_end_modal(discord.ui.Modal, title='(max znaków 500) (silnik davinci3)'):
+    text = discord.ui.TextInput(label='Tutaj wpisz swoje pytanie.', style=discord.TextStyle.paragraph, max_length=500)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        openai.api_key = api_key
+        model_engine = "text-davinci-003"
+
+        response = openai.Completion.create(
+            engine=model_engine, prompt=self.text.value,
+            max_tokens=1000, n=1, stop=None, temperature=0.7)
+
+        embed = discord.Embed(
+            title="Twoja odpowiedz <:icon_beta:1073011966571970641>",
+            description=response.choices[0].text)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    async def on_cancel(self, interaction: discord.Interaction):
+        await interaction.response.send_message('Anulowano.', ephemeral=True)
+        return self.stop()
+
+class chat_open_modal(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 60, commands.BucketType.member)
+
+    @discord.ui.button(label="Otwórz chat",
+                       custom_id="button1",
+                       emoji="<a:icon_join:1073011962092458104>",
+                       style=discord.ButtonStyle.green)
+    async def on_open(self, interaction: discord.Interaction, button: discord.ui.Button):
+        interaction.message.author = interaction.user
+        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!",ephemeral=True)
+        await interaction.response.send_modal(end_modal())
 
 client.run(token)
