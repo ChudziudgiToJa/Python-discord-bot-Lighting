@@ -36,12 +36,6 @@ async def on_error(event, *args, **kwargs):
     await user.send(f"**Wystąpił błąd:**\n```\n{error_message}\n```")
 
 @client.event
-async def on_error(open_modal, *args, **kwargs):
-    error_message = traceback.format_exc()
-    user = await client.fetch_user(owner_id)
-    await user.send(f"**Wystąpił błąd:**\n```\n{error_message}\n```")
-
-@client.event
 async def on_ready():
     await client.change_presence(status=discord.Status.do_not_disturb, activity=discord.Game(("odpalam się!")))
     print(f"[!] Aktywowano bota [{client.user}]")
@@ -109,7 +103,7 @@ async def my_command_error(ctx, error):
 class ticket_launcher(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
-        self.cooldown = commands.CooldownMapping.from_cooldown(1, 300, commands.BucketType.member)
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 60, commands.BucketType.member)
 
     @discord.ui.button(label = "Stworz ticket", style = discord.ButtonStyle.green, custom_id = "ticket_button", emoji="<a:icon_modshield:1073011960603488286>")
     async def ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -186,7 +180,7 @@ async def podanie(ctx):
     embed = discord.Embed(title=("Strefa pomocy"),
                            description=f"> Jeżeli interesuje cię dołączenie do gildi kliknij w guzik `Stworz podanie` a zostanie stowrzony kanał z szablonem do wypełnienia", color = discord.Colour.green())
     embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
-    await ctx.send(embed = embed, view = ticket_launcher())
+    await ctx.send(embed = embed, view = podanie_launcher())
 
 @podanie.error
 async def my_command_error(ctx, error):
@@ -196,37 +190,52 @@ async def my_command_error(ctx, error):
 class podanie_launcher(discord.ui.View):
     def __init__(self) -> None:
         super().__init__(timeout = None)
-
-        self.cooldown = commands.CooldownMapping.from_cooldown(1, 300, commands.BucketType.member)
+        self.cooldown = commands.CooldownMapping.from_cooldown(1, 60, commands.BucketType.member)
 
     @discord.ui.button(label = "Stworz podanie",
                         style = discord.ButtonStyle.green,
                         custom_id = "podanie_button",
-                        emoji="<a:icon_modshield:1073011960603488286>")
+                        emoji="<a:icon_modshield:1073011960603488286>"
+                        )
+
     async def podanie(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id in [user['user_id'] for user in blacklist['blacklist']]:
             await interaction.response.send_message(f"Posiadasz *BLACKLISTE*, co to oznacza? zostałeś wykluczony z użytku 7bota", ephemeral = True)
             return
-        
-        ticket_category = utils.get(interaction.guild.categories, name = "podania")
-        if ticket_category is None:
-            ticket_category = await interaction.guild.create_category("podania")
+    
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
         if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        ticket_category = utils.get(interaction.guild.categories, name = "podania")
+        if ticket_category is None:
+            ticket_category = await interaction.guild.create_category("podania")
         ticket = utils.get(interaction.guild.text_channels, name = f"podanie-{interaction.user.id}")
         if ticket is not None: await interaction.response.send_message(f"Masz już otwarte podanie! {ticket.mention}!", ephemeral = True)
         else:
+            await interaction.response.send_modal(podanie_open_ticket())
+
+class podanie_open_ticket(discord.ui.Modal, title='formularz rekrutacyjny'):
+    pytanie_1 = discord.ui.TextInput(label='Podaj nick z gry / Ile masz lat?', max_length=100)
+    pytanie_2 = discord.ui.TextInput(label='Jak oceniasz swoje pvp -/10', max_length=100)
+    pytanie_3 = discord.ui.TextInput(label='Ile czasu możesz spędzić dziennie w gildi?', max_length=100)
+    pytanie_4 = ui.TextInput(label='Opisz siebie w 4 zdaniach.', style=discord.TextStyle.paragraph, max_length=500)
+
+
+    async def on_submit(self, interaction: discord.Interaction):
+            ticket_category = utils.get(interaction.guild.categories, name = "podania")
             overwrites = {
                 interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
                 interaction.user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
                 interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
             }
-            try: channel = await interaction.guild.create_text_channel(name = f"podanie-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"podanie dla {interaction.user}")
-            except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
+            channel = await interaction.guild.create_text_channel(name = f"podanie-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"podanie dla {interaction.user}")
             await interaction.response.send_message(f"podanie zostało utworzone {channel.mention}!", ephemeral = True)
-            embed = discord.Embed(title=("Strefa pomocy"),
-                                   description=f"Wypełnij wzór i wyślij go na chat`cie ```Wzór Podania :\n1. nick:\n2. Wiek:\n3. Nick w Minecraft ? :\n4. Jak oceniasz swoje pvp -/10 ? :\n5. Ile czasu grasz w Minecraft ? :\n6. Premium/Nonpremium?:\n7. Ile dziennie możesz poświecić czasu na gildię ? :\n8. Umiesz ładnie budować ?:\n9. Co wprowadziłbyś do gildii ?:\n10. Posiadasz :\n-Sprawny Mikrofon\n-Mutacje\n11. Umiesz pracować w grupie ?:\n12. Na stałe czy raczej na jakiś czas ?:```", color = discord.Colour.green())
+            embed = discord.Embed(title=(f"Podanie {interaction.user}"),
+                                        color = discord.Colour.green())
+            embed.add_field(name="Podaj nick z gry / Ile masz lat?", value=f"{self.pytanie_1.value}", inline=False)
+            embed.add_field(name="Jak oceniasz swoje pvp -/10", value=f"{self.pytanie_2.value}", inline=False)
+            embed.add_field(name="Ile czasu możesz spędzić dziennie w gildi?", value=f"{self.pytanie_3.value}", inline=False)
+            embed.add_field(name="Opisz siebie w 4 zdaniach.", value=f"{self.pytanie_4.value}", inline=False)
             embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
             await channel.send(embed=embed, view=podanie_delete())
 
@@ -236,10 +245,11 @@ class podanie_delete(discord.ui.View):
 
         self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
 
-    @discord.ui.button(label = "Zamknij",
+    @discord.ui.button(label = "Odrzuć",
                         style = discord.ButtonStyle.red,
                         custom_id = "close",
-                        emoji="<a:icon_delete:1073011964537753711>")
+                        emoji="<a:icon_delete:1073011964537753711>"
+                        )
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
@@ -272,11 +282,11 @@ async def kategorie(ctx):
                            description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.dark_purple())  
     embed.set_image(url='https://imgur.com/a/ayBFhq4')
     await ctx.send(embed = embed, view = kategoria_luncher())
-
 @kategorie.error
 async def my_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
+
 
 class kategoria_luncher(discord.ui.View):
   def __init__(self) -> None:
@@ -312,24 +322,42 @@ class kategoria_luncher(discord.ui.View):
                     emoji="<a:diamond_sword:1073011971043115068>",
                     style = discord.ButtonStyle.blurple)
   async def button_role2(self, interaction: discord.Interaction, button: discord.ui.Button):
+        interaction.message.author = interaction.user
+        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
+        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
+        log = 1084629912217997372
+        role2 = 1073212315987611658
+        user = interaction.user
+        channel_log = client.get_channel(log)
 
-    interaction.message.author = interaction.user
-    retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-    if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-    log = 1084629912217997372
-    role2 = 1073212315987611658
-    user = interaction.user
-    if role2 in [y.id for y in user.roles]:
-      await user.remove_roles(user.guild.get_role(role2))
-      await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
-      channel_log = client.get_channel(log)
-      await channel_log.send(f"{interaction.user.display_name} Usunięto kategorie (Gildia NWN)")
-    else:
-      await user.add_roles(user.guild.get_role(role2))
-      await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
-      channel_log = client.get_channel(log)
-      await channel_log.send(f"{interaction.user.display_name} Nadano kategorie (Gildia NWN)")
-      
+        if role2 in [y.id for y in user.roles]:
+            await user.remove_roles(user.guild.get_role(role2))
+            await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
+            await channel_log.send(f"{interaction.user.display_name} Usunięto kategorie (Gildia NWN)")
+        else:
+            await interaction.response.send_modal(kategoria_open_modal())
+
+class kategoria_open_modal(discord.ui.Modal, title='Informacje użytkowinka'):
+    pytanie_1 = discord.ui.TextInput(label='Podaj nick z gry', max_length=32)
+    pytanie_2 = discord.ui.TextInput(label='podaj tag gildi jeżeli jej {TAG} | {BRAK}', max_length=5)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        log = 1084629912217997372
+        role2 = 1073212315987611658
+        user = interaction.user
+        channel_log = client.get_channel(log)        
+        if role2 in [y.id for y in user.roles]:
+            await user.remove_roles(user.guild.get_role(role2))
+            await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
+            await channel_log.send(f"{interaction.user.display_name} Usunięto kategorie (Gildia NWN)")
+        else:
+            await user.add_roles(user.guild.get_role(role2))
+            await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
+            await channel_log.send(f"{interaction.user.display_name} Nadano kategorie (Gildia NWN)")
+        if user.id == 441492546028306436:
+            return
+        else:
+            await user.edit(nick=f"{self.pytanie_1.value} [{self.pytanie_2.value.upper()}]")
 
 # - = - = - = - = - = lvl = - = - = - = - = - =
 
