@@ -1,9 +1,8 @@
-import discord, json, os, asyncio, random, traceback, openai
+import discord, json, os, asyncio, random, traceback, openai, math
 
 from discord import utils
 from discord.ext import commands
 from discord.ext.commands import has_permissions
-from discord import ui
 from datetime import datetime
 
 with open('config.json', 'r') as f:
@@ -12,11 +11,8 @@ with open('config.json', 'r') as f:
     prefix = data['PREFIX']
     aktywnosc = data['AKTYWNOSC']
     owner_id = data['OWNER_ID']
-    api_key = data['API_KEY']
-    version = data['VERSION']
     
 client = commands.Bot(command_prefix=prefix, intents=discord.Intents.all(), help_command=None)
-
 
 # - = - = - = - = - = rangs = - = - = - = - = - =
 
@@ -37,46 +33,21 @@ async def on_error(event, *args, **kwargs):
 
 @client.event
 async def on_ready():
-    await client.change_presence(status=discord.Status.do_not_disturb, activity=discord.Game(("odpalam się!")))
+    await client.change_presence(status=discord.Status.online, activity=discord.Game(("odpalam się!")))
     print(f"[!] Aktywowano bota [{client.user}]")
-    await asyncio.sleep(5)
-    client.loop.create_task(update_channel_member_name())
-    client.loop.create_task(update_channel_guild_name())
-    client.loop.create_task(update_status_name())
+    client.loop.create_task(loop_ten_min())
 
     client.add_view(ticket_launcher())
     client.add_view(ticket_confirm())
     client.add_view(ticket_delete())
-
-    client.add_view(podanie_launcher())
-    client.add_view(podanie_confirm())
-    client.add_view(podanie_delete())
-
-    client.add_view(kategoria_luncher())
-
-    client.add_view(chat_open_modal())
-
+    
 # - = - = - = - = - = loops = - = - = - = - = - =
 
-async def update_channel_member_name():
+async def loop_ten_min():
     while True:
-        channel = client.get_channel(1058437462818570410)
+        channel = client.get_channel(1096943790926868521)
         member_count = len(channel.guild.members)
-        await channel.edit(name=f'Użytkownicy: {member_count}')
-        await asyncio.sleep(600)
-
-async def update_channel_guild_name():
-    channel1 = client.get_channel(1073366116883247114)
-    channel2 = client.get_channel(1081543873068810281)
-    guild = discord.utils.get(client.guilds, name="Serwis 7Light & Gildia NWN")
-    roles = [discord.utils.get(guild.roles, name=role_name) for role_name in ["Lider NWN", "VLider NWN", "Rekruter NWN" ,"Członek NWN", "Rekrut NWN"]]
-    members = [member for role in roles for member in guild.members if role in member.roles]
-    await channel1.edit(name=f'Status gildi {len(members)}/100')
-    await channel2.edit(name=f"Wersja: {version}")
-    await asyncio.sleep(600)
-
-async def update_status_name():
-    while True:
+        await channel.edit(name=f'ᴜᴢʏᴛᴋᴏᴡɴɪᴄʏ: {member_count}')
         await client.change_presence(status=discord.Status.online, activity=discord.Game(random.choice(aktywnosc)))
         await asyncio.sleep(600)
 
@@ -91,7 +62,7 @@ async def on_command_error(ctx, error):
 @has_permissions(administrator=True)
 async def ticket(ctx):
     embed = discord.Embed(title=("Strefa pomocy"),
-                           description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji", color = discord.Colour.green())
+                           description=f"> Jeśli potrzebujesz pomocy kliknij w guzik `Stworz ticket` zostanie stworzony kanał z pomocą od administracji", color = discord.Colour.orange())
     embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
     await ctx.send(embed = embed, view = ticket_launcher())
 
@@ -107,16 +78,15 @@ class ticket_launcher(discord.ui.View):
 
     @discord.ui.button(label = "Stworz ticket", style = discord.ButtonStyle.green, custom_id = "ticket_button", emoji="<a:icon_modshield:1073011960603488286>")
     async def ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id in [user['user_id'] for user in blacklist['blacklist']]:
-            await interaction.response.send_message(f"Posiadasz *BLACKLISTE*, co to oznacza? zostałeś wykluczony z użytku 7bota", ephemeral = True)
-            return
-        
+        await interaction.response.send_modal(ticket_create())
+
+class ticket_create(discord.ui.Modal, title='formularz rekrutacyjny'):
+    pytanie_1 = discord.ui.TextInput(label='Opisz swój problem / pytanie.',style=discord.TextStyle.paragraph ,max_length=500)
+    async def on_submit(self, interaction: discord.Interaction):
         ticket_category = utils.get(interaction.guild.categories, name = "ticket")
         if ticket_category is None:
             ticket_category = await interaction.guild.create_category("ticket")
         interaction.message.author = interaction.user
-        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
         ticket = utils.get(interaction.guild.text_channels, name = f"ticket-{interaction.user.id}")
         if ticket is not None: await interaction.response.send_message(f"Masz już otwarty ticket! {ticket.mention}!", ephemeral = True)
         else:
@@ -128,14 +98,13 @@ class ticket_launcher(discord.ui.View):
             try: channel = await interaction.guild.create_text_channel(name = f"ticket-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"ticket dla {interaction.user}")
             except: return await interaction.response.send_message("Nie posiadasz permisji", ephemeral = True)
             await interaction.response.send_message(f"ticket został utworzony {channel.mention}!", ephemeral = True)
-            log = 1085233096720396308
+            log = 1096967443571810346
             channel_log = client.get_channel(log)
             await channel_log.send(f"{interaction.user} utworzył ticket")
             embed = discord.Embed(title=("Strefa pomocy"),
-                                   description=f"Opisz swój problem.", color = discord.Colour.green())
+                                   description=f"Pytanie od: `{interaction.user}` \n\n > {self.pytanie_1.value}", color = discord.Colour.green())
             embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
             await channel.send(embed=embed, view=ticket_delete())
-
 
 class ticket_delete(discord.ui.View):
     def __init__(self) -> None:
@@ -149,7 +118,7 @@ class ticket_delete(discord.ui.View):
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
         if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
 
-        embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to zgłoszenie", color = discord.Colour.green())
+        embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to zgłoszenie", color = discord.Colour.orange())
         try: await interaction.response.send_message(embed=embed, view=ticket_confirm(), ephemeral = True)
         except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
 
@@ -165,110 +134,9 @@ class ticket_confirm(discord.ui.View):
         user = interaction.user
         if user.guild_permissions.administrator:
             await interaction.channel.delete()
-            log = 1085233096720396308
+            log = 1096967443571810346
             channel_log = client.get_channel(log)
             await channel_log.send(f"{interaction.user} zamyka ticket")
-        else:
-            await interaction.response.send_message("Nie posiadasz permisji!", ephemeral=True)
-            return
-
-# - = - = - = - = - = padania = - = - = - = - = - =
-
-@client.command()
-@has_permissions(administrator=True)
-async def podanie(ctx):
-    embed = discord.Embed(title=("Strefa pomocy"),
-                           description=f"> Jeżeli interesuje cię dołączenie do gildi kliknij w guzik `Stworz podanie` a zostanie stowrzony kanał z szablonem do wypełnienia", color = discord.Colour.green())
-    embed.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
-    await ctx.send(embed = embed, view = podanie_launcher())
-
-@podanie.error
-async def my_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
-
-class podanie_launcher(discord.ui.View):
-    def __init__(self) -> None:
-        super().__init__(timeout = None)
-        self.cooldown = commands.CooldownMapping.from_cooldown(1, 60, commands.BucketType.member)
-
-    @discord.ui.button(label = "Stworz podanie",
-                        style = discord.ButtonStyle.green,
-                        custom_id = "podanie_button",
-                        emoji="<a:icon_modshield:1073011960603488286>"
-                        )
-
-    async def podanie(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id in [user['user_id'] for user in blacklist['blacklist']]:
-            await interaction.response.send_message(f"Posiadasz *BLACKLISTE*, co to oznacza? zostałeś wykluczony z użytku 7bota", ephemeral = True)
-            return
-    
-        interaction.message.author = interaction.user
-        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-        ticket_category = utils.get(interaction.guild.categories, name = "podania")
-        if ticket_category is None:
-            ticket_category = await interaction.guild.create_category("podania")
-        ticket = utils.get(interaction.guild.text_channels, name = f"podanie-{interaction.user.id}")
-        if ticket is not None: await interaction.response.send_message(f"Masz już otwarte podanie! {ticket.mention}!", ephemeral = True)
-        else:
-            await interaction.response.send_modal(podanie_open_ticket())
-
-class podanie_open_ticket(discord.ui.Modal, title='formularz rekrutacyjny'):
-    pytanie_1 = discord.ui.TextInput(label='Podaj nick z gry / Ile masz lat?', max_length=100)
-    pytanie_2 = discord.ui.TextInput(label='Jak oceniasz swoje pvp -/10', max_length=100)
-    pytanie_3 = discord.ui.TextInput(label='Ile czasu możesz spędzić dziennie w gildi?', max_length=100)
-    pytanie_4 = ui.TextInput(label='Opisz siebie w 4 zdaniach.', style=discord.TextStyle.paragraph, max_length=500)
-
-
-    async def on_submit(self, interaction: discord.Interaction):
-            ticket_category = utils.get(interaction.guild.categories, name = "podania")
-            overwrites = {
-                interaction.guild.default_role: discord.PermissionOverwrite(view_channel = False),
-                interaction.user: discord.PermissionOverwrite(view_channel = True, read_message_history = True, send_messages = True, attach_files = True, embed_links = True),
-                interaction.guild.me: discord.PermissionOverwrite(view_channel = True, send_messages = True, read_message_history = True), 
-            }
-            channel = await interaction.guild.create_text_channel(name = f"podanie-{interaction.user.id}", overwrites = overwrites,category=ticket_category, reason = f"podanie dla {interaction.user}")
-            await interaction.response.send_message(f"podanie zostało utworzone {channel.mention}!", ephemeral = True)
-            embed = discord.Embed(title=(f"Podanie {interaction.user}"),
-                                        color = discord.Colour.green())
-            embed.add_field(name="Podaj nick z gry / Ile masz lat?", value=f"{self.pytanie_1.value}", inline=False)
-            embed.add_field(name="Jak oceniasz swoje pvp -/10", value=f"{self.pytanie_2.value}", inline=False)
-            embed.add_field(name="Ile czasu możesz spędzić dziennie w gildi?", value=f"{self.pytanie_3.value}", inline=False)
-            embed.add_field(name="Opisz siebie w 4 zdaniach.", value=f"{self.pytanie_4.value}", inline=False)
-            embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/806244893977739324/1073020064661524551/logo_napisy.png")
-            await channel.send(embed=embed, view=podanie_delete())
-
-class podanie_delete(discord.ui.View):
-    def __init__(self) -> None:
-        super().__init__(timeout = None)
-
-        self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
-
-    @discord.ui.button(label = "Odrzuć",
-                        style = discord.ButtonStyle.red,
-                        custom_id = "close",
-                        emoji="<a:icon_delete:1073011964537753711>"
-                        )
-    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        interaction.message.author = interaction.user
-        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-        embed = discord.Embed(title = "Czy na pewno chcesz zamknąć to podanie", color = discord.Colour.green())
-        try: await interaction.response.send_message(embed=embed, view=podanie_confirm(), ephemeral = True)
-        except: await interaction.response.send_message("Nie posiadasz permisji!", ephemeral = True)
-
-class podanie_confirm(discord.ui.View):
-    def __init__(self) -> None:
-        super().__init__(timeout = None)
-
-    @discord.ui.button(label = "zatwierdz", style = discord.ButtonStyle.red,
-                        custom_id = "confirm",
-                        emoji="<a:icon_delete:1073011964537753711>")
-    async def confirm_button(self, interaction, button):
-        user = interaction.user
-        if user.guild_permissions.administrator:
-            await interaction.channel.delete()
         else:
             await interaction.response.send_message("Nie posiadasz permisji!", ephemeral=True)
             return
@@ -277,141 +145,42 @@ class podanie_confirm(discord.ui.View):
 
 @client.command()
 @has_permissions(administrator=True)
-async def kategorie(ctx):
-    embed = discord.Embed(title=('Kategorie serwerów'),
-                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady w gildi i discordzie.\nKliknij przycisk `Serwis 7Light` lub `Gildia NWN`, aby przejść ten etap.", color = discord.Colour.dark_purple())  
-    embed.set_image(url='https://imgur.com/a/ayBFhq4')
-    await ctx.send(embed = embed, view = kategoria_luncher())
-@kategorie.error
+async def startup(ctx):
+    embed = discord.Embed(title=('Kategorie'),
+                           description=f"Przeczytaj <#992422566574706799> , aby wybrać kategorie na serwerze.\nJeśli przeczytałeś to wiesz jakie są zasady na discordzie.\nKliknij przycisk aby przejść ten etap.", color = discord.Colour.dark_orange())  
+    await ctx.send(embed = embed, view = startup_luncher())
+
+@startup.error
 async def my_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
 
-
-class kategoria_luncher(discord.ui.View):
+class startup_luncher(discord.ui.View):
   def __init__(self) -> None:
     super().__init__(timeout = None)
     self.cooldown = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
-
-
-  @discord.ui.button(label = "Serwis 7Light",
+  @discord.ui.button(label = "Akceptuje regulamin",
                     custom_id = "button_role1",
-                    emoji="<a:barrier_block:1073011973639385098>",
-                    style = discord.ButtonStyle.green)
+                    emoji="<a:icon_join:1073011962092458104>",
+                    style = discord.ButtonStyle.green
+                    )
   async def button_role1(self, interaction: discord.Interaction, button: discord.ui.Button):
-
-    interaction.message.author = interaction.user
-    retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-    if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-    log = 1084629912217997372
-    role1 = 999421620894568498
-    user = interaction.user
-    if role1 in [y.id for y in user.roles]:
-      await user.remove_roles(user.guild.get_role(role1))
-
-      await interaction.response.send_message("Usunięto kategorie (7Light)", ephemeral = True)
-      channel = client.get_channel(log)
-      await channel.send(f"{interaction.user.display_name} Usunięto kategorie (7Light)")
-    else:
-      await user.add_roles(user.guild.get_role(role1))
-      await interaction.response.send_message("Nadano kategorie (7Light)", ephemeral = True)
-      channel = client.get_channel(log)
-      await channel.send(f"{interaction.user.display_name} Nadano kategorie (7Light)")
-  @discord.ui.button(label = "Gildia NWN",
-                    custom_id = "button_role2",
-                    emoji="<a:diamond_sword:1073011971043115068>",
-                    style = discord.ButtonStyle.blurple)
-  async def button_role2(self, interaction: discord.Interaction, button: discord.ui.Button):
         interaction.message.author = interaction.user
         retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
         if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!", ephemeral = True)
-        log = 1084629912217997372
-        role2 = 1073212315987611658
+        log = 1093666927873892422
+        role = 1093662561049784420
         user = interaction.user
         channel_log = client.get_channel(log)
-
-        if role2 in [y.id for y in user.roles]:
-            await user.remove_roles(user.guild.get_role(role2))
-            await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
-            await channel_log.send(f"{interaction.user.display_name} Usunięto kategorie (Gildia NWN)")
+        if role in [y.id for y in user.roles]:
+            await user.remove_roles(user.guild.get_role(role))
+            await interaction.response.send_message("Usunięto role (7Light)", ephemeral = True)
+            await channel_log.send(f"{interaction.user.display_name} Usunięto role (7Light)")
         else:
-            await interaction.response.send_modal(kategoria_open_modal())
+            await user.add_roles(user.guild.get_role(role))
+            await interaction.response.send_message("Nadano role (Gildia NWN)", ephemeral = True)
+            await channel_log.send(f"{interaction.user.display_name} Nadano role (7Light)")
 
-class kategoria_open_modal(discord.ui.Modal, title='Informacje użytkowinka'):
-    pytanie_1 = discord.ui.TextInput(label='Podaj nick z gry', max_length=32)
-    pytanie_2 = discord.ui.TextInput(label='podaj tag gildi jeżeli jej {TAG} | {BRAK}', max_length=5)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        log = 1084629912217997372
-        role2 = 1073212315987611658
-        user = interaction.user
-        channel_log = client.get_channel(log)        
-        if role2 in [y.id for y in user.roles]:
-            await user.remove_roles(user.guild.get_role(role2))
-            await interaction.response.send_message("Usunięto kategorie (Gildia NWN)", ephemeral = True)
-            await channel_log.send(f"{interaction.user.display_name} Usunięto kategorie (Gildia NWN)")
-        else:
-            await user.add_roles(user.guild.get_role(role2))
-            await interaction.response.send_message("Nadano kategorie (Gildia NWN)", ephemeral = True)
-            await channel_log.send(f"{interaction.user.display_name} Nadano kategorie (Gildia NWN)")
-        if user.id == 441492546028306436:
-            return
-        else:
-            await user.edit(nick=f"{self.pytanie_1.value} [{self.pytanie_2.value.upper()}]")
-
-# - = - = - = - = - = lvl = - = - = - = - = - =
-
-with open("users.json", "ab+") as ab:
-    ab.close()
-    f = open('users.json','r+')
-    f.readline()
-    if os.stat("users.json").st_size == 0:
-      f.write("{}")
-      f.close()
-    else:
-      pass
-with open('users.json', 'r') as f:
-  users = json.load(f)
-
-@client.event    
-async def on_message(message):
-    if message.author.bot == False:
-        with open('users.json', 'r') as f:
-            users = json.load(f)
-        await add_experience(users, message.author)
-        await level_up(users, message.author, message)
-        with open('users.json', 'w') as f:
-            json.dump(users, f)
-            await client.process_commands(message)
-
-async def add_experience(users, user):
-  if not f'{user.id}' in users:
-        users[f'{user.id}'] = {}
-        users[f'{user.id}']['experience'] = 0
-        users[f'{user.id}']['level'] = 1
-  users[f'{user.id}']['experience'] += random.randint(20,5)
-
-async def level_up(users, user, message):
-  experience = users[f'{user.id}']["experience"]
-  lvl_start = users[f'{user.id}']["level"]
-  lvl_end = int(experience ** (1 / 2))
-  if lvl_start < lvl_end:
-    em1 = discord.Embed(
-        title="Strefa użytkownika <:icon_beta:1073011966571970641>",
-        description=f"Gratulacje zdobyłeś nowy poziom:\n\n> `Nick:`  {user.mention}\n> `Poziom:`  __*{lvl_start}*__  ->  __*{lvl_end}*__   `Doświadczenie:` {experience}",
-        colour=discord.Colour.green()
-        )
-    em1.set_thumbnail(url='https://cdn.discordapp.com/attachments/1033109052567339160/1033886652835303464/fire.gif')
-
-    role = discord.utils.get(message.guild.roles, name="poziom " + str(lvl_end))
-    await message.author.add_roles(role)
-    if role is None:
-        await user.add_roles(role)
-
-    channel= client.get_channel(1077550850421047386)
-    await channel.send(embed=em1)
-    users[f'{user.id}']["level"] = lvl_end
-    
 # - = - = - = - = - = log = - = - = - = - = - =
 
 @client.event
@@ -421,8 +190,11 @@ async def on_message_delete(message):
                             description=f"`Nick:` {message.author.mention}",
                             color=0xFF0000)
         embed.add_field(name="```" + message.content + "```", value=":x:",inline=True)
+        
+        for attachment in message.attachments:
+            embed.set_image(url=attachment.url)
 
-        channel = client.get_channel(1079159997444935760)
+        channel = client.get_channel(1096934505165635705)
         await channel.send(embed=embed)
 
 @client.event
@@ -435,107 +207,11 @@ async def on_message_edit(message_before, message_after):
         embed.add_field(name="```" + message_before.content + "```", value=":x:",inline=True)
         embed.add_field(name="```" + message_after.content + "```", value=":white_check_mark:",inline=True)
 
-        channel = client.get_channel(1079159997444935760)
+        # pętla dla załączników
+        for attachment in message_before.attachments + message_after.attachments:
+            embed.set_image(url=attachment.url)
+
+        channel = client.get_channel(1096934505165635705)
         await channel.send(embed=embed)
-
-# - = - = - = - = - = blacklist = - = - = - = - = - =
-
-with open('blacklist.json') as f:
-    blacklist = json.load(f)
-
-@client.event
-async def on_message(message):
-    if message.author.id in [user['user_id'] for user in blacklist['blacklist']]:
-        return
-    else:
-        await client.process_commands(message)
-
-@client.command()
-@has_permissions(administrator=True)
-async def b_add(ctx, user_id: int, *, powód: str):
-    for user in blacklist['blacklist']:
-        if user['user_id'] == user_id:
-            await ctx.send(f'Użytkownik o ID {user_id} już istnieje na czarnej liście.')
-            return
-    if user_id == 441492546028306436:
-        await ctx.send(f'Użytkownik o ID {user_id} jest niemożłiwy do dodania.')
-        return
-    blacklist['blacklist'].append({'user_id': user_id, 'reason': powód})
-    with open('blacklist.json', 'w') as f:
-        json.dump(blacklist, f, indent=4)
-    await ctx.send(f'Użytkownik o ID {user_id} został dodany do czarnej listy.')
-    channel = client.get_channel(1081320004814901288)
-    embed = discord.Embed(title="BLACKLIST",
-        description=f"Dodano do listy `{user_id}`\npowód: `{powód}`",
-        colour=discord.Colour.red())
-    await channel.send(embed=embed)
-
-@client.command()
-@has_permissions(administrator=True)
-async def b_remove(ctx, user_id: int):
-    for i, user in enumerate(blacklist['blacklist']):
-        if user['user_id'] == user_id:
-            blacklist['blacklist'].pop(i)
-            with open('blacklist.json', 'w') as f:
-                json.dump(blacklist, f, indent=4)
-            await ctx.send(f'Użytkownik o ID {user_id} został usunięty z czarnej listy.')
-            channel = client.get_channel(1081320004814901288)
-            embed = discord.Embed(title="BLACKLIST",
-            description=f"Usunięto `{user_id}` z listy",
-            colour=discord.Colour.red()
-                )
-            await channel.send(embed=embed)
-            return
-    await ctx.send('Nie znaleziono użytkownika na czarnej liście.')
-
-# - = - = - = - = - = openai = - = - = - = - = - =
-
-@client.command()
-@commands.has_permissions(administrator=True)
-async def chat(ctx):
-    embed = discord.Embed(title='Sztuczna inteligencja <:icon_beta:1073011966571970641>',
-                          description=f"> Aby zadać pytanie sztucznej inteligencji.\n> kliknij w guzik `Otwórz chat` i zadaj pytanie w podanym polu", color=discord.Colour.green())
-    await ctx.send(embed=embed, view=chat_open_modal())
-
-@chat.error
-async def my_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("Nie posiadasz wystarczających uprawnień, aby użyć tej komendy.")
-
-class chat_end_modal(discord.ui.Modal, title='(max znaków 500) (silnik davinci3)'):
-    text = discord.ui.TextInput(label='Tutaj wpisz swoje pytanie.', style=discord.TextStyle.paragraph, max_length=500)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        openai.api_key = api_key
-        model_engine = "text-davinci-003"
-
-        response = openai.Completion.create(
-            engine=model_engine, prompt=self.text.value,
-            max_tokens=1000, n=1, stop=None, temperature=0.7)
-
-        embed = discord.Embed(
-            title="Twoja odpowiedz <:icon_beta:1073011966571970641>",
-            description=response.choices[0].text)
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    async def on_cancel(self, interaction: discord.Interaction):
-        await interaction.response.send_message('Anulowano.', ephemeral=True)
-        return self.stop()
-
-class chat_open_modal(discord.ui.View):
-    def __init__(self) -> None:
-        super().__init__(timeout=None)
-        self.cooldown = commands.CooldownMapping.from_cooldown(1, 60, commands.BucketType.member)
-
-    @discord.ui.button(label="Otwórz chat",
-                       custom_id="button1",
-                       emoji="<a:icon_join:1073011962092458104>",
-                       style=discord.ButtonStyle.green)
-    async def on_open(self, interaction: discord.Interaction, button: discord.ui.Button):
-        interaction.message.author = interaction.user
-        retry = self.cooldown.get_bucket(interaction.message).update_rate_limit()
-        if retry: return await interaction.response.send_message(f"Spróbuj ponownie za {round(retry, 1)} sekund!",ephemeral=True)
-        await interaction.response.send_modal(chat_end_modal())
 
 client.run(token)
